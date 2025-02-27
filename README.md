@@ -35,6 +35,91 @@ tooling provided by JetBrains and the editing model of Helix.
   pursuing those, as IdeaVim does, is something to avoid. Contributions are welcome, as
   basic compatibility or UX improvements are always possible without overdoing it.
 
+## Emulating Helix Carets
+
+In Helix, carets are visually represented as blocks, but these blocks are not
+just indicators -- they are actual one-character selections. This means the visual
+representation directly corresponds to the underlying behavior: replacing or deleting a
+character removes it from the document and places it into a register, just like a yank
+operation. This leads to the first rule:
+
+**Selections are always at least one character long, with a line caret positioned either
+before the first character or before the last.**
+
+To illustrate this, let's introduce a legend:
+
+- `|` -- Line caret (default in IntelliJ IDEA and many other non-TUI editors)
+- `|x|` -- Block caret highlighting character `x` (as in Helix)
+- `║` -- Selection boundaries
+
+Here’s how selecting the word `hello` appears in Helix compared to IdeaHelix, with spaces
+preserved to reflect caret positioning accurately:
+
+```
+Forward-facing selection:
+Hx : ║h e l l|o|
+IHx: ║h e l l|o║
+
+Backward-facing selection:
+Hx : |h|e l l o║
+IHx: |h e l l o║
+```
+
+**A caret can only be in one of two positions: at the start of the selection or just
+before the last selected character.**
+
+### Edge Case: Empty Buffer
+
+If the buffer is empty, no selection exists—this is the only exception to the first rule.
+As soon as text is inserted, the standard behavior applies.
+
+### Insertion Mode
+
+In Helix, a one-character selection behaves like a block caret in normal mode, but in
+insertion mode, it functions as an actual insertion point. Typed characters appear before
+the caret, shifting it forward. IntelliJ's line caret, which can exist independently
+of selections, is used in IdeaHelix to provide a clearer representation of insertion
+behavior.
+
+**In insertion mode, the line caret marks the actual insertion point.**
+
+For example, typing `u` in the following scenario results in `helulo`:
+
+```
+Hx : h e l|l|o
+IHx: h e l|l o
+```
+
+### Append & Prepend Behavior
+
+When entering insertion mode via prepend or append, Helix and IdeaHelix display caret
+positions slightly differently. The examples below illustrate how the selection of `hello`
+in `hello world` appears upon entering prepend or append mode:
+
+```
+Append:
+Hx : ║h e l l o| |w o r l d
+IHx: ║h e l l o|  w o r l d
+
+Prepend:
+Hx : |h|e l l o║  w o r l d
+IHx: |h e l l o║  w o r l d
+```
+
+### Exiting Insertion Mode
+
+When leaving insertion mode, selections reappear as follows:
+
+```
+Exiting append:
+Hx : ║h e l l|o|  w o r l d
+IHx: ║h e l l|o║  w o r l d
+
+Exiting prepend (no change in either case):
+Hx : |h|e l l o║  w o r l d
+IHx: |h e l l o║  w o r l d
+```
+
 ## Acknowledgments
 - [Kakoune](https://kakoune.org) – for ruining my life by making every other editing
   style unbearable.
