@@ -11,13 +11,69 @@
     (com.intellij.openapi.editor
       VisualPosition)
     (com.intellij.openapi.editor.impl
-      CaretImpl)
+      CaretImpl
+      DocumentImpl)
     (com.intellij.openapi.project
       Project)
     (com.intellij.openapi.ui
-      Messages)
-    (com.intellij.openapi.util
-      TextRange)))
+      Messages)))
+
+
+(defrecord IhxSelection
+  [^CaretImpl caret anchor length])
+
+
+(defn ihx-move-forward
+  [selection n]
+  (update selection :length + n))
+
+
+(defn ihx-move-backward
+  [selection n]
+  (let [length (- (:length selection) n)]
+    (if (= length 0)
+      (-> selection
+          (assoc :length -2)
+          (update :anchor inc))
+      (assoc selection :length length))))
+
+
+(defn ihx-selection
+  [^DocumentImpl document ^CaretImpl caret]
+  (let [start (.getSelectionStart caret)
+        end (.getSelectionEnd caret)
+        text-length (.getTextLength document)
+        original-length (- end start)
+        offset (.getOffset caret)
+        is-forward (or (< original-length 2) (not= start offset))
+        is-broken (or (and (> text-length 0) (= original-length 0))
+                      (and (not= offset start)
+                           (not= offset (dec end))))
+        [length anchor]
+        (cond
+          is-broken [1 (min offset (dec text-length))]
+          is-forward [original-length start]
+          :default [(- original-length) end])]
+    (->IhxSelection caret anchor length)))
+
+
+(defn ihx-apply-selection
+  [{:keys [anchor length caret]} document]
+  (let [[start end] (sort [anchor (+ anchor length)])
+        adjusted-start (max 0 start)
+        adjusted-end (min (.getTextLength document) end)
+        offset (if (pos? length) (max 0 (dec adjusted-end)) start)]
+    (.moveToOffset caret offset)
+    (.setSelection caret adjusted-start adjusted-end)))
+
+
+(defn ihx-shrink-selection
+  [selection]
+  (let [length (:length selection)
+        pos (max 0 (+ (:anchor selection) length))]
+    (-> selection
+        (assoc :anchor (if (pos? length) (dec pos) pos))
+        (assoc :length 1))))
 
 
 (defn ensure-selection

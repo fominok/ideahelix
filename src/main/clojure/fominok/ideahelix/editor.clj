@@ -32,7 +32,7 @@
   (memoize
     (fn [state]
       (if-let [prefix-vec (get state :prefix)]
-        (Integer/parseInt (apply str prefix-vec))
+        (min 10000 (Integer/parseInt (apply str prefix-vec)))
         1))))
 
 
@@ -123,7 +123,10 @@
     [caret] (ensure-selection-forward caret))
    (\;
      "Shrink selections to 1 char" :undoable
-     [document caret] (shrink-selection document caret))
+     [document caret]
+     (-> (ihx-selection document caret)
+         ihx-shrink-selection
+         (ihx-apply-selection document)))
    (\,
      "Drop all selections but primary" :undoable
      [editor] (keep-primary-selection editor))
@@ -165,11 +168,17 @@
     ((:or \h KeyEvent/VK_LEFT)
      "Move carets left" :undoable :scroll
      [state document caret]
-     (dotimes [_ (min 10000 (get-prefix state))] (move-caret-backward document caret)))
+     (-> (ihx-selection document caret)
+         (ihx-move-backward (get-prefix state))
+         ihx-shrink-selection
+         (ihx-apply-selection document)))
     ((:or \l KeyEvent/VK_RIGHT)
      "Move carets right" :undoable :scroll
      [state document caret]
-     (dotimes [_ (min 10000 (get-prefix state))] (move-caret-forward document caret)))
+     (-> (ihx-selection document caret)
+         (ihx-move-forward (get-prefix state))
+         ihx-shrink-selection
+         (ihx-apply-selection document)))
     ((:shift \G)
      "Move to line number" :undoable :scroll
      [state editor document] (move-caret-line-n editor document (get-prefix state))
@@ -204,11 +213,15 @@
     ((:or \h KeyEvent/VK_LEFT)
      "Move carets left extending" :undoable :scroll
      [state document caret]
-     (dotimes [_ (min 10000 (get-prefix state))] (extending document caret (partial move-caret-backward document))))
+     (-> (ihx-selection document caret)
+         (ihx-move-backward (get-prefix state))
+         (ihx-apply-selection document)))
     ((:or \l KeyEvent/VK_RIGHT)
      "Move carets right extending" :undoable :scroll
      [state document caret]
-     (dotimes [_ (min 10000 (get-prefix state))] (extending document caret (partial move-caret-forward document))))
+     (-> (ihx-selection document caret)
+         (ihx-move-forward (get-prefix state))
+         (ihx-apply-selection document)))
     ((:shift \G)
      "Move to line number" :undoable :scroll
      [state editor document]
@@ -281,20 +294,26 @@
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
   (let [project-state (or (get @state project) {project {editor {:mode :normal}}})
-        editor-state (get project-state editor)
-        result (editor-handler project project-state editor-state editor event)]
-    (when-not (:caret-listener editor-state)
-      (let [listener (caret-listener editor)]
-        (.. editor getCaretModel (addCaretListener listener))
-        (vswap! state assoc-in [project editor :caret-listener] listener)))
-    (cond
-      (= :pass result) false
+        editor-state (get project-state editor)]
+    (try
+      (let [result (editor-handler project project-state editor-state editor event)]
+        (when-not (:caret-listener editor-state)
+          (let [listener (caret-listener editor)]
+            (.. editor getCaretModel (addCaretListener listener))
+            (vswap! state assoc-in [project editor :caret-listener] listener)))
+        (cond
+          (= :pass result) false
 
-      (map? result) (do
-                      (.consume event)
-                      (vswap! state assoc project result)
-                      (ui/update-mode-panel! project (get-in @state [project editor]))
-                      true)
-      :default (do
-                 (.consume event)
-                 true))))
+          (map? result) (do
+                          (.consume event)
+                          (vswap! state assoc project result)
+                          (ui/update-mode-panel! project (get-in @state [project editor]))
+                          true)
+          :default (do
+                     (.consume event)
+                     true)))
+      (catch Exception e
+        (when-let [mark (:mark-action editor-state)]
+          (finish-undo project editor mark))
+        (vswap! state assoc-in [project editor :mark-action] nil)
+        (throw e)))))
