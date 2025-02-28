@@ -48,20 +48,10 @@
   (ensure-selection document caret))
 
 
-(defn move-caret-word-forward
-  [editor caret]
-  (let [document (.getDocument editor)
-        prev-offset (.getOffset caret)]
-    (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
-    (if (= prev-offset (dec (.getOffset caret)))
-      (do
-        (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
-        (let [offset (.getOffset caret)]
-          (.moveCaretRelatively caret -1 0 false false)
-          (.setSelection caret (binc document prev-offset) offset)))
-      (do
-        (.setSelection caret prev-offset (.getOffset caret))
-        (.moveToOffset caret (bdec (.getOffset caret)))))))
+(defn ihx-move-relative!
+  [{:keys [caret] :as selection} & {:keys [cols lines] :or {cols 0 lines 0}}]
+  (.moveCaretRelatively caret cols lines false false)
+  (assoc selection :offset (.getOffset caret)))
 
 
 ;; This modifies the caret
@@ -85,7 +75,7 @@
 
 
 (defn ihx-word-backward-extending!
-  [{:keys [caret offset] :as selection} editor]
+  [{:keys [caret] :as selection} editor]
   (EditorActionUtil/moveToPreviousCaretStop editor CaretStopPolicy/WORD_START false true)
   (let [new-offset (.getOffset caret)]
     (assoc selection :offset new-offset)))

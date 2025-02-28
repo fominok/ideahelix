@@ -166,11 +166,19 @@
     ((:or \j KeyEvent/VK_DOWN)
      "Move carets down" :undoable :scroll
      [state document caret]
-     (dotimes [_ (min 10000 (get-prefix state))] (move-caret-down document caret)))
+     (dotimes [_ (get-prefix state)]
+       (-> (ihx-selection document caret)
+           (ihx-move-relative! :lines 1)
+           ihx-shrink-selection
+           (ihx-apply-selection-preserving document))))
     ((:or \k KeyEvent/VK_UP)
      "Move carets up" :undoable :scroll
      [state document caret]
-     (dotimes [_ (min 10000 (get-prefix state))] (move-caret-up document caret)))
+     (dotimes [_ (get-prefix state)]
+       (-> (ihx-selection document caret)
+           (ihx-move-relative! :lines -1)
+           ihx-shrink-selection
+           (ihx-apply-selection-preserving document))))
     ((:or \h KeyEvent/VK_LEFT)
      "Move carets left" :undoable :scroll
      [state document caret]
@@ -217,11 +225,17 @@
     ((:or \j KeyEvent/VK_DOWN)
      "Move carets down extending" :undoable :scroll
      [state document caret]
-     (dotimes [_ (min 10000 (get-prefix state))] (extending document caret (partial move-caret-down document))))
+     (dotimes [_ (get-prefix state)]
+       (-> (ihx-selection document caret)
+           (ihx-move-relative! :lines 1)
+           (ihx-apply-selection-preserving document))))
     ((:or \k KeyEvent/VK_UP)
      "Move carets up extending" :undoable :scroll
      [state document caret]
-     (dotimes [_ (min 10000 (get-prefix state))] (extending document caret (partial move-caret-up document))))
+     (dotimes [_ (get-prefix state)]
+       (-> (ihx-selection document caret)
+           (ihx-move-relative! :lines -1)
+           (ihx-apply-selection-preserving document))))
     ((:or \h KeyEvent/VK_LEFT)
      "Move carets left extending" :undoable :scroll
      [state document caret]

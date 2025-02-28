@@ -79,6 +79,14 @@
     (.setSelection caret adjusted-start adjusted-end)))
 
 
+(defn ihx-apply-selection-preserving
+  [{:keys [anchor offset caret]} document]
+  (let [[start end] (sort [anchor offset])
+        adjusted-start (max 0 start)
+        adjusted-end (min (.getTextLength document) (inc end))]
+    (.setSelection caret adjusted-start adjusted-end)))
+
+
 (defn ihx-shrink-selection
   [selection]
   (assoc selection :anchor (:offset selection)))
