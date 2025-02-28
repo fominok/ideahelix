@@ -6,7 +6,7 @@
   "Keymap definition utilities."
   (:require
     [clojure.spec.alpha :as s]
-    [fominok.ideahelix.editor.movement :refer [scroll-to-primary-caret]])
+    [fominok.ideahelix.editor.selection :refer [scroll-to-primary-caret]])
   (:import
     (com.intellij.openapi.command
       CommandProcessor

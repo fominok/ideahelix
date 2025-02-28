@@ -9,7 +9,11 @@
      :rename {inc-within-bounds binc dec-within-bounds bdec}])
   (:import
     (com.intellij.openapi.editor
+      ScrollType
       VisualPosition)
+    (com.intellij.openapi.editor.actions
+      CaretStopPolicy
+      EditorActionUtil)
     (com.intellij.openapi.editor.impl
       CaretImpl
       DocumentImpl)
@@ -168,23 +172,40 @@
       (= offset (bdec selection-end)))))
 
 
-(defn select-lines
-  [document ^CaretImpl caret & {:keys [extend] :or {extend false}}]
-  (let [selection-start (.getSelectionStart caret)
-        selection-end (.getSelectionEnd caret)
-        line-start (.getLineNumber document selection-start)
-        line-end (.getLineNumber document selection-end)
-        start (.getLineStartOffset document line-start)
-        end (.getLineEndOffset document line-end)
-        extend? (and extend (= selection-start start) (= selection-end end))
-        adjusted-end (if extend?
-                       (binc document (.getLineEndOffset
-                                        document
-                                        (min (inc line-end)
-                                             (dec (.getLineCount document)))))
-                       (binc document end))]
-    (.setSelection caret start adjusted-end)
-    (.moveToOffset caret adjusted-end)))
+(defn ihx-move-line-start
+  [{:keys [offset] :as selection} editor document]
+  (let [line-start-offset
+        (.getLineStartOffset document (.line (.offsetToLogicalPosition editor offset)))]
+    (assoc selection :offset line-start-offset)))
+
+
+(defn ihx-move-line-end
+  [{:keys [offset] :as selection} editor document]
+  (let [line-end-offset
+        (.getLineEndOffset document (.line (.offsetToLogicalPosition editor offset)))]
+    (assoc selection :offset line-end-offset)))
+
+
+(defn ihx-move-relative!
+  [{:keys [caret] :as selection} & {:keys [cols lines] :or {cols 0 lines 0}}]
+  (.moveCaretRelatively caret cols lines false false)
+  (assoc selection :offset (.getOffset caret)))
+
+
+(defn ihx-select-lines
+  [{:keys [anchor offset] :as selection} editor document & {:keys [extend] :or {extend false}}]
+  (let [new-selection
+        (-> selection
+            ihx-make-backward
+            (ihx-move-line-start editor document)
+            ihx-make-forward
+            (ihx-move-line-end editor document))]
+    (if (and extend (= (sort [anchor offset])
+                       (sort [(:anchor new-selection) (:offset new-selection)])))
+      (-> new-selection
+          (ihx-move-relative! :lines 1)
+          (ihx-move-line-end editor document))
+      new-selection)))
 
 
 (defn- line-length
@@ -275,3 +296,66 @@
     (doseq [{:keys [start end]} (rest matches)]
       (when-let [caret (.addCaret model (.offsetToVisualPosition editor (bdec end)))]
         (.setSelection caret start end)))))
+
+
+(defn scroll-to-primary-caret
+  [editor]
+  (.. editor getScrollingModel (scrollToCaret ScrollType/RELATIVE)))
+
+
+;; This modifies the caret
+(defn ihx-word-forward-extending!
+  [{:keys [caret] :as selection} editor]
+  (.moveCaretRelatively caret 1 0 false false)
+  (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
+  (let [new-offset (max 0 (dec (.getOffset caret)))]
+    (assoc selection :offset new-offset)))
+
+
+(defn ihx-word-forward!
+  [{:keys [caret offset] :as selection} editor]
+  (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
+  (let [new-offset (.getOffset caret)]
+    (if (= new-offset (inc offset))
+      (do
+        (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
+        (assoc selection :offset (max 0 (dec (.getOffset caret))) :anchor new-offset))
+      (assoc selection :offset (max 0 (dec new-offset)) :anchor offset))))
+
+
+(defn ihx-word-backward-extending!
+  [{:keys [caret] :as selection} editor]
+  (EditorActionUtil/moveToPreviousCaretStop editor CaretStopPolicy/WORD_START false true)
+  (let [new-offset (.getOffset caret)]
+    (assoc selection :offset new-offset)))
+
+
+(defn ihx-word-backward!
+  [{:keys [caret offset] :as selection} editor]
+  (EditorActionUtil/moveToPreviousCaretStop editor CaretStopPolicy/WORD_START false true)
+  (let [new-selection (assoc selection :offset (.getOffset caret) :anchor offset)]
+    (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
+    (if (= (.getOffset caret) offset)
+      (assoc new-selection :anchor (max 0 (dec (.getOffset caret))))
+      new-selection)))
+
+
+(defn ihx-move-caret-line-n
+  [editor document n]
+  (let [line-n (dec (min n (.getLineCount document)))
+        model (.getCaretModel editor)
+        caret (.getPrimaryCaret model)
+        offset (.getLineStartOffset document line-n)]
+    (.removeSecondaryCarets model)
+    (-> (ihx-selection document caret)
+        (ihx-offset offset))))
+
+
+(defn ihx-move-file-end
+  [editor document]
+  (let [text-length (.getTextLength document)
+        model (.getCaretModel editor)
+        caret (.getPrimaryCaret model)]
+    (.removeSecondaryCarets model)
+    (-> (ihx-selection document caret)
+        (ihx-offset text-length))))

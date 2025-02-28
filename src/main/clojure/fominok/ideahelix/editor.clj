@@ -6,7 +6,6 @@
   (:require
     [fominok.ideahelix.editor.action :refer [actions]]
     [fominok.ideahelix.editor.modification :refer :all]
-    [fominok.ideahelix.editor.movement :refer :all]
     [fominok.ideahelix.editor.registers :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.ui :as ui]
@@ -106,8 +105,9 @@
      (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
    ((:shift \A)
     "Append to line"
-    [document caret]
-    (-> (move-caret-line-end document caret)
+    [editor document caret]
+    (-> (ihx-selection document caret)
+        (ihx-move-line-end editor document)
         ihx-shrink-selection
         (ihx-apply-selection! document))
     [project editor state]
@@ -122,8 +122,9 @@
      (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
    ((:shift \I)
     "Prepend to lines"
-    [document caret]
-    (-> (move-caret-line-start document caret)
+    [editor document caret]
+    (-> (ihx-selection document caret)
+        (ihx-move-line-start editor document)
         ihx-shrink-selection
         (ihx-apply-selection! document))
     [project editor state]
@@ -145,11 +146,17 @@
      [editor] (keep-primary-selection editor))
    (\x
      "Select whole lines extending" :undoable :scroll
-     [state document caret]
-     (dotimes [_ (min 10000 (get-prefix state))] (select-lines document caret :extend true)))
+     [state editor document caret]
+     (dotimes [_ (get-prefix state)]
+       (-> (ihx-selection document caret)
+           (ihx-select-lines editor document :extend true)
+           (ihx-apply-selection! document))))
    ((:shift \X)
     "Select whole lines" :undoable :scroll
-    [document caret] (select-lines document caret :extend false))
+    [editor document caret]
+    (-> (ihx-selection document caret)
+        (ihx-select-lines editor document)
+        (ihx-apply-selection! document)))
    ((:shift \C)
     "Add selections below" :undoable
     [state editor caret]
@@ -276,16 +283,17 @@
       "Add prefix arg" :keep-prefix [char state] (update state :prefix conj char))
     (\h
       "Move carets to line start" :undoable :scroll
-      [document caret] (-> (ihx-selection document caret)
-                           (ihx-move-line-start document)
-                           ihx-shrink-selection
-                           (ihx-apply-selection! document))
+      [editor document caret] (-> (ihx-selection document caret)
+                                  (ihx-move-line-start editor document)
+                                  ihx-shrink-selection
+                                  (ihx-apply-selection! document))
       [state] (assoc state :mode :normal))
     (\l
       "Move carets to line end" :undoable :scroll
-      [document caret] (-> (move-caret-line-end document caret)
-                           ihx-shrink-selection
-                           (ihx-apply-selection! document))
+      [editor document caret] (-> (ihx-selection document caret)
+                                  (ihx-move-line-end editor document)
+                                  ihx-shrink-selection
+                                  (ihx-apply-selection! document))
       [state] (assoc state :mode :normal))
     (\g
       "Move to line number" :undoable :scroll
@@ -307,14 +315,17 @@
       "Add prefix arg" :keep-prefix [char state] (update state :prefix conj char))
     (\h
       "Move carets to line start extending" :undoable :scroll
-      [document caret] (-> (ihx-selection document caret)
-                           (ihx-move-line-start document)
-                           (ihx-apply-selection! document))
+      [editor document caret]
+      (-> (ihx-selection document caret)
+          (ihx-move-line-start editor document)
+          (ihx-apply-selection! document))
       [state] (assoc state :mode :select))
     (\l
       "Move carets to line end extending" :undoable :scroll
-      [document caret] (-> (move-caret-line-end document caret)
-                           (ihx-apply-selection! document))
+      [editor document caret]
+      (-> (ihx-selection document caret)
+          (ihx-move-line-end editor document)
+          (ihx-apply-selection! document))
       [state] (assoc state :mode :select))
     (\g
       "Move to line number" :undoable :scroll
@@ -334,7 +345,8 @@
     #_((:or (:ctrl \e) (:ctrl \u0005)) [document caret] (move-caret-line-end document caret))
     (KeyEvent/VK_BACK_SPACE :write [document caret] (backspace document caret))
     (KeyEvent/VK_ENTER :write [document caret] (insert-newline document caret))
-    (_ :write [document caret char]
+    (_ :write
+       [document caret char]
        (-> (ihx-selection document caret :insert-mode true)
            (ihx-insert-char document char)
            (ihx-apply-selection! document)))))
