@@ -5,10 +5,7 @@
 (ns fominok.ideahelix.editor.movement
   "Movements that aren't defined by existing Idea actions"
   (:require
-    [fominok.ideahelix.editor.selection :refer :all]
-    [fominok.ideahelix.editor.util
-     :refer [inc-within-bounds dec-within-bounds]
-     :rename {inc-within-bounds binc dec-within-bounds bdec}])
+    [fominok.ideahelix.editor.selection :refer :all])
   (:import
     (com.intellij.openapi.editor
       ScrollType)
@@ -34,18 +31,6 @@
   (let [line-end-offset (.getLineEndOffset document (.. caret getLogicalPosition line))
         selection (ihx-selection document caret)]
     (assoc selection :offset line-end-offset)))
-
-
-(defn move-caret-down
-  [document caret]
-  (.moveCaretRelatively caret 0 1 false false)
-  (ensure-selection document caret))
-
-
-(defn move-caret-up
-  [document caret]
-  (.moveCaretRelatively caret 0 -1 false false)
-  (ensure-selection document caret))
 
 
 (defn ihx-move-relative!
@@ -91,11 +76,22 @@
       new-selection)))
 
 
-(defn move-caret-line-n
+(defn ihx-move-caret-line-n
   [editor document n]
   (let [line-n (dec (min n (.getLineCount document)))
         model (.getCaretModel editor)
+        caret (.getPrimaryCaret model)
         offset (.getLineStartOffset document line-n)]
     (.removeSecondaryCarets model)
-    (.moveToOffset model offset)
-    (ensure-selection document (.getPrimaryCaret model))))
+    (-> (ihx-selection document caret)
+        (ihx-offset offset))))
+
+
+(defn ihx-move-file-end
+  [editor document]
+  (let [text-length (.getTextLength document)
+        model (.getCaretModel editor)
+        caret (.getPrimaryCaret model)]
+    (.removeSecondaryCarets model)
+    (-> (ihx-selection document caret)
+        (ihx-offset text-length))))

@@ -195,8 +195,11 @@
          (ihx-apply-selection! document)))
     ((:shift \G)
      "Move to line number" :undoable :scroll
-     [state editor document] (move-caret-line-n editor document (get-prefix state))
-     [state] (assoc state :mode :normal)))
+     [state editor document]
+     (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
+             ihx-shrink-selection
+             (ihx-apply-selection! document))
+         (assoc state :mode :normal))))
 
   (:select
     (\g
@@ -251,9 +254,9 @@
     ((:shift \G)
      "Move to line number" :undoable :scroll
      [state editor document]
-     (let [caret (.. editor getCaretModel getPrimaryCaret)]
-       (extending document caret (fn [_] (move-caret-line-n editor document (get-prefix state))))
-       (assoc state :mode :select))))
+     (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
+             (ihx-apply-selection! document))
+         (assoc state :mode :select))))
 
   (:goto
     (Character/isDigit
@@ -272,12 +275,17 @@
       [state] (assoc state :mode :normal))
     (\g
       "Move to line number" :undoable :scroll
-      [state editor document] (move-caret-line-n editor document (get-prefix state))
-      [state] (assoc state :mode :normal))
+      [state editor document]
+      (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
+              ihx-shrink-selection
+              (ihx-apply-selection! document))
+          (assoc state :mode :normal)))
     (\e "Move to file end" :undoable :scroll
         [state editor document]
-        (move-caret-line-n editor document (.getLineCount document))
-        [state] (assoc state :mode :normal))
+        (do (-> (ihx-move-file-end editor document)
+                ihx-shrink-selection
+                (ihx-apply-selection! document))
+            (assoc state :mode :normal)))
     (_ [state] (assoc state :mode :normal)))
 
   (:select-goto
@@ -296,15 +304,14 @@
     (\g
       "Move to line number" :undoable :scroll
       [state editor document]
-      (let [caret (.. editor getCaretModel getPrimaryCaret)]
-        (extending document caret (fn [_] (move-caret-line-n editor document (get-prefix state))))
-        (assoc state :mode :select)))
-    (\e
-      "Move to file end" :undoable :scroll
-      [state editor document]
-      (let [caret (.. editor getCaretModel getPrimaryCaret)]
-        (extending document caret (fn [_] (move-caret-line-n editor document (.getLineCount document))))
-        (assoc state :mode :select)))
+      (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
+              (ihx-apply-selection! document))
+          (assoc state :mode :select)))
+    (\e "Move to file end" :undoable :scroll
+        [state editor document]
+        (do (-> (ihx-move-file-end editor document)
+                (ihx-apply-selection! document))
+            (assoc state :mode :select)))
     (_ [state] (assoc state :mode :select)))
 
   (:insert

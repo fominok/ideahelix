@@ -69,14 +69,21 @@
     (->IhxSelection caret anchor offset)))
 
 
+(defn- adjust
+  [document n]
+  (let [text-length (.getTextLength document)]
+    (min (max 0 n) text-length)))
+
+
 ;; This modifies the caret
 (defn ihx-apply-selection!
   [{:keys [anchor offset caret]} document]
   (let [[start end] (sort [anchor offset])
-        adjusted-start (max 0 start)
-        adjusted-end (min (.getTextLength document) (inc end))]
-    (.moveToOffset caret offset)
-    (.setSelection caret adjusted-start adjusted-end)))
+        text-length (.getTextLength document)
+        adj (partial adjust document)
+        adjusted-start (max 0 (min start (dec text-length)))]
+    (.moveToOffset caret adjusted-start)
+    (.setSelection caret adjusted-start (adj (inc end)))))
 
 
 (defn ihx-apply-selection-preserving
@@ -141,25 +148,6 @@
     (and
       (= offset selection-start)
       (= offset (bdec selection-end)))))
-
-
-(defn extending
-  "Executes function f on the caret but extending the existing selection or creating a new one"
-  ([document caret f]
-   (let [selection-start (.getSelectionStart caret)
-         selection-end (.getSelectionEnd caret)
-         previous-offset (.getOffset caret)
-         anchor (if (= selection-start previous-offset)
-                  selection-end
-                  selection-start)
-         _ (f caret)
-         new-offset (.getOffset caret)
-         move-right (> new-offset previous-offset)]
-     (if (and move-right (= new-offset anchor))
-       (.setSelection caret (bdec anchor) (binc document new-offset))
-       (if (>= new-offset anchor)
-         (.setSelection caret anchor (binc document new-offset))
-         (.setSelection caret new-offset anchor))))))
 
 
 (defn select-lines
