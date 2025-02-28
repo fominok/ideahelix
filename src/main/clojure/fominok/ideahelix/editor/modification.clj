@@ -4,7 +4,7 @@
 
 (ns fominok.ideahelix.editor.modification
   (:require
-    [fominok.ideahelix.editor.selection :refer [ensure-selection reversed? degenerate?]]
+    [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.util
      :refer [inc-within-bounds dec-within-bounds get-caret-contents]
      :rename {inc-within-bounds binc dec-within-bounds bdec}])
@@ -82,19 +82,15 @@
     @return))
 
 
-(defn insert-char
-  [document caret char]
+(defn ihx-insert-char
+  [{:keys [offset in-append] :as selection} document char]
   (when-not (and (not= char \return \newline) (Character/isISOControl char))
-    (let [selection-start (.getSelectionStart caret)
-          selection-end (.getSelectionEnd caret)
-          reversed (reversed? caret)
-          offset (.getOffset caret)
-          selection-length (- selection-end selection-start)]
-      (.insertString document offset (str char))
-      (.moveToOffset caret (binc document offset))
-      (if (or (and (= offset selection-start) (= selection-length 1)) reversed)
-        (.setSelection caret (.getOffset caret) (binc document selection-end))
-        (.setSelection caret selection-start (.getOffset caret))))))
+    (.insertString document (cond-> offset
+                              in-append inc)
+                   (str char))
+    (if in-append
+      (ihx-move-forward selection 1)
+      (ihx-nudge selection 1))))
 
 
 (defn insert-new-line-below

@@ -5,7 +5,7 @@
 (ns fominok.ideahelix.editor.selection
   (:require
     [fominok.ideahelix.editor.util
-     :refer [inc-within-bounds dec-within-bounds for-each-caret]
+     :refer [inc-within-bounds dec-within-bounds]
      :rename {inc-within-bounds binc dec-within-bounds bdec}])
   (:import
     (com.intellij.openapi.editor
@@ -25,7 +25,7 @@
 ;; a position between characters, meaning it will be kept selected unlike in
 ;; Idea
 (defrecord IhxSelection
-  [^CaretImpl caret anchor offset])
+  [^CaretImpl caret anchor offset in-append])
 
 
 (defn ihx-move-forward
@@ -38,11 +38,30 @@
   (update selection :offset - n))
 
 
+(defn ihx-make-backward
+  [{:keys [anchor offset] :as selection}]
+  (if (> offset anchor)
+    (assoc selection :anchor offset :offset anchor)
+    selection))
+
+
+(defn ihx-make-forward
+  [{:keys [anchor offset] :as selection}]
+  (if (< offset anchor)
+    (assoc selection :anchor offset :offset anchor)
+    selection))
+
+
 (defn ihx-nudge
   [selection n]
   (-> selection
       (update :anchor + n)
       (update :offset + n)))
+
+
+(defn ihx-append
+  [selection]
+  (assoc selection :in-append true))
 
 
 (defn ihx-offset
@@ -51,12 +70,15 @@
 
 
 (defn ihx-selection
-  [^DocumentImpl document ^CaretImpl caret]
+  [^DocumentImpl document ^CaretImpl caret & {:keys [insert-mode] :or {insert-mode false}}]
   (let [start (.getSelectionStart caret)
         end (.getSelectionEnd caret)
         text-length (.getTextLength document)
         original-length (- end start)
-        offset (.getOffset caret)
+        offset' (.getOffset caret)
+        [in-append offset] (if (and insert-mode (= offset' end))
+                             [true (dec offset')]
+                             [false offset'])
         is-forward (or (< original-length 2) (not= start offset))
         is-broken (or (and (> text-length 0) (= original-length 0))
                       (and (not= offset start)
@@ -66,24 +88,20 @@
           is-broken offset
           is-forward start
           :default (max 0 (dec end)))]
-    (->IhxSelection caret anchor offset)))
-
-
-(defn- adjust
-  [document n]
-  (let [text-length (.getTextLength document)]
-    (min (max 0 n) text-length)))
+    (->IhxSelection caret anchor offset in-append)))
 
 
 ;; This modifies the caret
 (defn ihx-apply-selection!
-  [{:keys [anchor offset caret]} document]
+  [{:keys [anchor offset caret in-append]} document]
   (let [[start end] (sort [anchor offset])
         text-length (.getTextLength document)
-        adj (partial adjust document)
-        adjusted-start (max 0 (min start (dec text-length)))]
-    (.moveToOffset caret adjusted-start)
-    (.setSelection caret adjusted-start (adj (inc end)))))
+        adj #(max 0 (min % (dec text-length)))
+        adjusted-offset (adj (cond-> offset
+                               in-append inc))
+        adjusted-start (adj start)]
+    (.moveToOffset caret adjusted-offset)
+    (.setSelection caret adjusted-start (max 0 (min (inc end) text-length)))))
 
 
 (defn ihx-apply-selection-preserving

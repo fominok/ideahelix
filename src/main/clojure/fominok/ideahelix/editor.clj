@@ -10,7 +10,6 @@
     [fominok.ideahelix.editor.registers :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.ui :as ui]
-    [fominok.ideahelix.editor.util :refer [for-each-caret]]
     [fominok.ideahelix.keymap :refer [defkeymap]])
   (:import
     (com.intellij.openapi.actionSystem
@@ -95,24 +94,35 @@
      (replace-selections project-state project editor document))
    (\a
      "Append to selections"
-     [caret] (into-insert-mode-append caret)
+     [document caret]
+     (-> (ihx-selection document caret)
+         ihx-make-forward
+         ihx-append
+         (ihx-apply-selection! document))
      [project editor state]
      (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
    ((:shift \A)
     "Append to line"
-    [document caret] (do (move-caret-line-end document caret)
-                         (into-insert-mode-append caret))
+    [document caret]
+    (-> (move-caret-line-end document caret)
+        ihx-shrink-selection
+        (ihx-apply-selection! document))
     [project editor state]
     (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
    (\i
      "Prepend to selections"
-     [caret] (into-insert-mode-prepend caret)
+     [document caret]
+     (-> (ihx-selection document caret)
+         ihx-make-backward
+         (ihx-apply-selection! document))
      [project editor state]
      (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
    ((:shift \I)
     "Prepend to lines"
-    [document caret] (do (move-caret-line-start document caret)
-                         (into-insert-mode-prepend caret))
+    [document caret]
+    (-> (move-caret-line-start document caret)
+        ihx-shrink-selection
+        (ihx-apply-selection! document))
     [project editor state]
     (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
    ((:or (:alt \;) (:alt \u2026))
@@ -319,7 +329,10 @@
     #_((:or (:ctrl \e) (:ctrl \u0005)) [document caret] (move-caret-line-end document caret))
     (KeyEvent/VK_BACK_SPACE :write [document caret] (backspace document caret))
     (KeyEvent/VK_ENTER :write [document caret] (insert-newline document caret))
-    (_ :write [document caret char] (insert-char document caret char))))
+    (_ :write [document caret char]
+       (-> (ihx-selection document caret :insert-mode true)
+           (ihx-insert-char document char)
+           (ihx-apply-selection! document)))))
 
 
 (defn- caret-listener
