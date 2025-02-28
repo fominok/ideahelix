@@ -194,8 +194,10 @@
                                          ~project
                                          (fn []
                                            (let [start# (StartMarkAction/start ~editor ~project ~docstring)]
-                                             (vreset! return# ~s)
-                                             (FinishMarkAction/finish ~project ~editor start#)))
+                                             (try
+                                               (vreset! return# ~s)
+                                               (finally
+                                                 (FinishMarkAction/finish ~project ~editor start#)))))
                                          ~docstring
                                          nil))
                                    @return#)))

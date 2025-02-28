@@ -4,6 +4,7 @@
 
 (ns fominok.ideahelix.editor.modification
   (:require
+    [fominok.ideahelix.editor.movement :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.util
      :refer [inc-within-bounds dec-within-bounds get-caret-contents]
@@ -14,14 +15,6 @@
     (com.intellij.openapi.command.impl
       FinishMarkAction
       StartMarkAction)))
-
-
-(defn into-insert-mode-append
-  [caret]
-  (let [selection-start (.getSelectionStart caret)
-        selection-end (.getSelectionEnd caret)]
-    (.moveToOffset caret selection-end)
-    (.setSelection caret selection-start selection-end)))
 
 
 (defn into-insert-mode-prepend
@@ -93,24 +86,25 @@
       (ihx-nudge selection 1))))
 
 
-(defn insert-new-line-below
-  [editor document caret]
-  (let [column (.. editor (offsetToLogicalPosition (.getSelectionEnd caret)) column)
-        end-pos (if (zero? column) (bdec (.getSelectionEnd caret)) (.getSelectionEnd caret))
-        line (.getLineNumber document end-pos)
-        pos (.getLineEndOffset document line)]
-    (.insertString document pos "\n")
-    (.moveToOffset caret (binc document pos))
-    (ensure-selection document caret)))
+(defn ihx-new-line-below
+  [selection document]
+  (let [new-selection
+        (-> (ihx-make-forward selection)
+            (ihx-move-relative! :lines 1)
+            (ihx-move-line-start document)
+            ihx-shrink-selection)]
+    (.insertString document (:offset new-selection) "\n")
+    new-selection))
 
 
-(defn insert-new-line-above
-  [document caret]
-  (let [line (.getLineNumber document (.getSelectionStart caret))
-        pos (.getLineStartOffset document line)]
-    (.insertString document pos "\n")
-    (.moveToOffset caret pos)
-    (ensure-selection document caret)))
+(defn ihx-new-line-above
+  [selection document]
+  (let [new-selection
+        (-> (ihx-make-forward selection)
+            (ihx-move-line-start document)
+            ihx-shrink-selection)]
+    (.insertString document (:offset new-selection) "\n")
+    new-selection))
 
 
 (defn replace-selections

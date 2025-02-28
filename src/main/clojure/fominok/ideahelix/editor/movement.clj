@@ -19,10 +19,9 @@
   (.. editor getScrollingModel (scrollToCaret ScrollType/RELATIVE)))
 
 
-(defn move-caret-line-start
-  [document caret]
-  (let [line-start-offset (.getLineStartOffset document (.. caret getLogicalPosition line))
-        selection (ihx-selection document caret)]
+(defn ihx-move-line-start
+  [{:keys [caret] :as selection} document]
+  (let [line-start-offset (.getLineStartOffset document (.. caret getLogicalPosition line))]
     (assoc selection :offset line-start-offset)))
 
 

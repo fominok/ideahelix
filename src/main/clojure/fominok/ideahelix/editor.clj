@@ -63,18 +63,21 @@
      (let [registers (copy-to-register (:registers project-state) editor document)]
        (assoc project-state :registers registers)))
    (\o
-     "New line below" :write
-     [editor document caret] (do (insert-new-line-below editor document caret)
-                                 (into-insert-mode-prepend caret))
+     "New line below" :write :scroll
+     [document caret]
+     (-> (ihx-selection document caret)
+         (ihx-new-line-below document)
+         (ihx-apply-selection! document))
      [project editor state]
      (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
    ((:shift \O)
-    "New line above" :write
-    [document caret] (do (insert-new-line-above document caret)
-                         (into-insert-mode-prepend caret))
+    "New line above" :write :scroll
+    [document caret]
+    (-> (ihx-selection document caret)
+        (ihx-new-line-above document)
+        (ihx-apply-selection! document))
     [project editor state]
     (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
-
    ((:shift \%)
     "Select whole buffer"
     [editor document] (select-buffer editor document))
@@ -273,7 +276,8 @@
       "Add prefix arg" :keep-prefix [char state] (update state :prefix conj char))
     (\h
       "Move carets to line start" :undoable :scroll
-      [document caret] (-> (move-caret-line-start document caret)
+      [document caret] (-> (ihx-selection document caret)
+                           (ihx-move-line-start document)
                            ihx-shrink-selection
                            (ihx-apply-selection! document))
       [state] (assoc state :mode :normal))
@@ -303,7 +307,8 @@
       "Add prefix arg" :keep-prefix [char state] (update state :prefix conj char))
     (\h
       "Move carets to line start extending" :undoable :scroll
-      [document caret] (-> (move-caret-line-start document caret)
+      [document caret] (-> (ihx-selection document caret)
+                           (ihx-move-line-start document)
                            (ihx-apply-selection! document))
       [state] (assoc state :mode :select))
     (\l
@@ -346,26 +351,20 @@
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
   (let [project-state (or (get @state project) {project {editor {:mode :normal}}})
-        editor-state (get project-state editor)]
-    (try
-      (let [result (editor-handler project project-state editor-state editor event)]
-        (when-not (:caret-listener editor-state)
-          (let [listener (caret-listener editor)]
-            (.. editor getCaretModel (addCaretListener listener))
-            (vswap! state assoc-in [project editor :caret-listener] listener)))
-        (cond
-          (= :pass result) false
+        editor-state (get project-state editor)
+        result (editor-handler project project-state editor-state editor event)]
+    (when-not (:caret-listener editor-state)
+      (let [listener (caret-listener editor)]
+        (.. editor getCaretModel (addCaretListener listener))
+        (vswap! state assoc-in [project editor :caret-listener] listener)))
+    (cond
+      (= :pass result) false
 
-          (map? result) (do
-                          (.consume event)
-                          (vswap! state assoc project result)
-                          (ui/update-mode-panel! project (get-in @state [project editor]))
-                          true)
-          :default (do
-                     (.consume event)
-                     true)))
-      (catch Exception e
-        (when-let [mark (:mark-action editor-state)]
-          (finish-undo project editor mark))
-        (vswap! state assoc-in [project editor :mark-action] nil)
-        (throw e)))))
+      (map? result) (do
+                      (.consume event)
+                      (vswap! state assoc project result)
+                      (ui/update-mode-panel! project (get-in @state [project editor]))
+                      true)
+      :default (do
+                 (.consume event)
+                 true))))
