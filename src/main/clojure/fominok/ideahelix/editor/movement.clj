@@ -5,7 +5,7 @@
 (ns fominok.ideahelix.editor.movement
   "Movements that aren't defined by existing Idea actions"
   (:require
-    [fominok.ideahelix.editor.selection :refer [ensure-selection reversed?]]
+    [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.util
      :refer [inc-within-bounds dec-within-bounds]
      :rename {inc-within-bounds binc dec-within-bounds bdec}])
@@ -24,28 +24,16 @@
 
 (defn move-caret-line-start
   [document caret]
-  (let [offset (.getLineStartOffset document (.. caret getLogicalPosition line))]
-    (.moveToOffset caret offset)
-    (ensure-selection document caret)))
+  (let [line-start-offset (.getLineStartOffset document (.. caret getLogicalPosition line))
+        selection (ihx-selection document caret)]
+    (assoc selection :offset line-start-offset)))
 
 
 (defn move-caret-line-end
   [document caret]
-  (let [offset (.getLineEndOffset document (.. caret getLogicalPosition line))]
-    (.moveToOffset caret (bdec offset))
-    (ensure-selection document caret)))
-
-
-(defn move-caret-backward
-  [document caret]
-  (.moveCaretRelatively caret -1 0 false false)
-  (ensure-selection document caret))
-
-
-(defn move-caret-forward
-  [document caret]
-  (.moveCaretRelatively caret 1 0 false false)
-  (ensure-selection document caret))
+  (let [line-end-offset (.getLineEndOffset document (.. caret getLogicalPosition line))
+        selection (ihx-selection document caret)]
+    (assoc selection :offset line-end-offset)))
 
 
 (defn move-caret-down
@@ -76,12 +64,41 @@
         (.moveToOffset caret (bdec (.getOffset caret)))))))
 
 
-(defn move-caret-word-backward
-  [editor caret]
-  (let [offset (.getOffset caret)
-        prev-offset (if (reversed? caret) offset (inc offset))]
-    (EditorActionUtil/moveToPreviousCaretStop editor CaretStopPolicy/WORD_START false true)
-    (.setSelection caret (.getOffset caret) prev-offset)))
+;; This modifies the caret
+(defn ihx-word-forward-extending!
+  [{:keys [caret] :as selection} editor]
+  (.moveCaretRelatively caret 1 0 false false)
+  (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
+  (let [new-offset (max 0 (dec (.getOffset caret)))]
+    (assoc selection :offset new-offset)))
+
+
+(defn ihx-word-forward!
+  [{:keys [caret offset] :as selection} editor]
+  (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
+  (let [new-offset (.getOffset caret)]
+    (if (= new-offset (inc offset))
+      (do
+        (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
+        (assoc selection :offset (max 0 (dec (.getOffset caret))) :anchor new-offset))
+      (assoc selection :offset (max 0 (dec new-offset)) :anchor offset))))
+
+
+(defn ihx-word-backward-extending!
+  [{:keys [caret offset] :as selection} editor]
+  (EditorActionUtil/moveToPreviousCaretStop editor CaretStopPolicy/WORD_START false true)
+  (let [new-offset (.getOffset caret)]
+    (assoc selection :offset new-offset)))
+
+
+(defn ihx-word-backward!
+  [{:keys [caret offset] :as selection} editor]
+  (EditorActionUtil/moveToPreviousCaretStop editor CaretStopPolicy/WORD_START false true)
+  (let [new-selection (assoc selection :offset (.getOffset caret) :anchor offset)]
+    (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
+    (if (= (.getOffset caret) offset)
+      (assoc new-selection :anchor (max 0 (dec (.getOffset caret))))
+      new-selection)))
 
 
 (defn move-caret-line-n

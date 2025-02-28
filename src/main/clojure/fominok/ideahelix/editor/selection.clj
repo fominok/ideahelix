@@ -19,23 +19,35 @@
       Messages)))
 
 
+;; Instead of counting positions between characters this wrapper
+;; speaks in character indices, at least because when selection is getting
+;; reversed on caret movement the pivot is a character in Helix rather than
+;; a position between characters, meaning it will be kept selected unlike in
+;; Idea
 (defrecord IhxSelection
-  [^CaretImpl caret anchor length])
+  [^CaretImpl caret anchor offset])
 
 
 (defn ihx-move-forward
   [selection n]
-  (update selection :length + n))
+  (update selection :offset + n))
 
 
 (defn ihx-move-backward
   [selection n]
-  (let [length (- (:length selection) n)]
-    (if (= length 0)
-      (-> selection
-          (assoc :length -2)
-          (update :anchor inc))
-      (assoc selection :length length))))
+  (update selection :offset - n))
+
+
+(defn ihx-nudge
+  [selection n]
+  (-> selection
+      (update :anchor + n)
+      (update :offset + n)))
+
+
+(defn ihx-offset
+  [selection offset]
+  (assoc selection :offset offset))
 
 
 (defn ihx-selection
@@ -49,31 +61,27 @@
         is-broken (or (and (> text-length 0) (= original-length 0))
                       (and (not= offset start)
                            (not= offset (dec end))))
-        [length anchor]
+        anchor
         (cond
-          is-broken [1 (min offset (dec text-length))]
-          is-forward [original-length start]
-          :default [(- original-length) end])]
-    (->IhxSelection caret anchor length)))
+          is-broken offset
+          is-forward start
+          :default (max 0 (dec end)))]
+    (->IhxSelection caret anchor offset)))
 
 
-(defn ihx-apply-selection
-  [{:keys [anchor length caret]} document]
-  (let [[start end] (sort [anchor (+ anchor length)])
+;; This modifies the caret
+(defn ihx-apply-selection!
+  [{:keys [anchor offset caret]} document]
+  (let [[start end] (sort [anchor offset])
         adjusted-start (max 0 start)
-        adjusted-end (min (.getTextLength document) end)
-        offset (if (pos? length) (max 0 (dec adjusted-end)) start)]
+        adjusted-end (min (.getTextLength document) (inc end))]
     (.moveToOffset caret offset)
     (.setSelection caret adjusted-start adjusted-end)))
 
 
 (defn ihx-shrink-selection
   [selection]
-  (let [length (:length selection)
-        pos (max 0 (+ (:anchor selection) length))]
-    (-> selection
-        (assoc :anchor (if (pos? length) (dec pos) pos))
-        (assoc :length 1))))
+  (assoc selection :anchor (:offset selection)))
 
 
 (defn ensure-selection
@@ -100,12 +108,6 @@
   (let [selection-start (.getSelectionStart caret)]
     (when (= (.getOffset caret) selection-start)
       (.moveToOffset caret (bdec (.getSelectionEnd caret))))))
-
-
-(defn shrink-selection
-  [document caret]
-  (let [offset (.getOffset caret)]
-    (.setSelection caret offset (binc document offset))))
 
 
 (defn keep-primary-selection
