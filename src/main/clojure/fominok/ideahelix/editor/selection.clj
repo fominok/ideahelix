@@ -3,10 +3,6 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.selection
-  (:require
-    [fominok.ideahelix.editor.util
-     :refer [inc-within-bounds dec-within-bounds]
-     :rename {inc-within-bounds binc dec-within-bounds bdec}])
   (:import
     (com.intellij.openapi.editor
       ScrollType
@@ -68,6 +64,11 @@
   (assoc selection :in-append true))
 
 
+(defn ihx-append-quit
+  [selection]
+  (assoc selection :in-append false))
+
+
 (defn ihx-offset
   [selection offset]
   (assoc selection :offset offset))
@@ -121,30 +122,11 @@
   (assoc selection :anchor (:offset selection)))
 
 
-(defn ensure-selection
-  "Keep at least one character selection"
-  [document caret]
-  (let [offset (.getOffset caret)
-        selection-start (.getSelectionStart caret)
-        selection-end (.getSelectionEnd caret)]
-    (when-not (and (.hasSelection caret)
-                   (or (= offset selection-start) (= offset (bdec selection-end))))
-      (.setSelection caret offset (binc document offset)))))
-
-
 (defn flip-selection
-  [caret]
-  (let [selection-start (.getSelectionStart caret)]
-    (if (= (.getOffset caret) selection-start)
-      (.moveToOffset caret (bdec (.getSelectionEnd caret)))
-      (.moveToOffset caret selection-start))))
-
-
-(defn ensure-selection-forward
-  [caret]
-  (let [selection-start (.getSelectionStart caret)]
-    (when (= (.getOffset caret) selection-start)
-      (.moveToOffset caret (bdec (.getSelectionEnd caret))))))
+  [{:keys [offset anchor] :as selection}]
+  (if (> offset anchor)
+    (ihx-make-backward selection)
+    (ihx-make-forward selection)))
 
 
 (defn keep-primary-selection
@@ -159,17 +141,7 @@
         offset (.getOffset caret)]
     (and
       (= offset selection-start)
-      (< selection-start (bdec selection-end)))))
-
-
-(defn degenerate?
-  [caret]
-  (let [selection-start (.getSelectionStart caret)
-        selection-end (.getSelectionEnd caret)
-        offset (.getOffset caret)]
-    (and
-      (= offset selection-start)
-      (= offset (bdec selection-end)))))
+      (> (- selection-end selection-start) 1))))
 
 
 (defn ihx-move-line-start
@@ -291,11 +263,12 @@
                   flatten))]
     (when-let [{:keys [start end]} (first matches)]
       (.removeSecondaryCarets model)
-      (.moveToOffset primary (bdec end))
-      (.setSelection primary start end))
+      (-> (->IhxSelection primary start (dec end) false)
+          (ihx-apply-selection! document)))
     (doseq [{:keys [start end]} (rest matches)]
-      (when-let [caret (.addCaret model (.offsetToVisualPosition editor (bdec end)))]
-        (.setSelection caret start end)))))
+      (when-let [caret (.addCaret model (.offsetToVisualPosition editor (max 0 (dec end))))]
+        (-> (->IhxSelection caret start (dec end) false)
+            (ihx-apply-selection! document))))))
 
 
 (defn scroll-to-primary-caret

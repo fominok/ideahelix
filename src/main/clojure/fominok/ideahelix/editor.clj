@@ -41,7 +41,10 @@
     (KeyEvent/VK_ESCAPE
       "Back to normal mode"
       [state document caret]
-      (when (= :insert (:mode state)) (leave-insert-mode document caret))
+      (when (= :insert (:mode state))
+        (-> (ihx-selection document caret :insert-mode true)
+            ihx-append-quit
+            (ihx-apply-selection! document)))
       [state project editor]
       (let [new-state (assoc state :mode :normal :prefix nil)]
         (if (= :insert (:mode state))
@@ -63,17 +66,17 @@
        (assoc project-state :registers registers)))
    (\o
      "New line below" :write :scroll
-     [document caret]
+     [editor document caret]
      (-> (ihx-selection document caret)
-         (ihx-new-line-below document)
+         (ihx-new-line-below editor document)
          (ihx-apply-selection! document))
      [project editor state]
      (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
    ((:shift \O)
     "New line above" :write :scroll
-    [document caret]
+    [editor document caret]
     (-> (ihx-selection document caret)
-        (ihx-new-line-above document)
+        (ihx-new-line-above editor document)
         (ihx-apply-selection! document))
     [project editor state]
     (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
@@ -130,11 +133,16 @@
     [project editor state]
     (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
    ((:or (:alt \;) (:alt \u2026))
-    "Flip selection" :undoable
-    [caret] (flip-selection caret))
+    "Flip selection" :undoable :scroll
+    [document caret] (-> (ihx-selection document caret)
+                         flip-selection
+                         (ihx-apply-selection! document)))
    ((:or (:alt \:) (:alt \u00DA))
     "Make selections forward" :undoable
-    [caret] (ensure-selection-forward caret))
+    [document caret]
+    (-> (ihx-selection document caret)
+        ihx-make-forward
+        (ihx-apply-selection! document)))
    (\;
      "Shrink selections to 1 char" :undoable
      [document caret]
@@ -344,7 +352,11 @@
     #_((:or (:ctrl \a) (:ctrl \u0001)) [document caret] (move-caret-line-start document caret))
     #_((:or (:ctrl \e) (:ctrl \u0005)) [document caret] (move-caret-line-end document caret))
     (KeyEvent/VK_BACK_SPACE :write [document caret] (backspace document caret))
-    (KeyEvent/VK_ENTER :write [document caret] (insert-newline document caret))
+    (KeyEvent/VK_ENTER :write
+                       [document caret]
+                       (-> (ihx-selection document caret :insert-mode true)
+                           (insert-newline document)
+                           (ihx-apply-selection! document)))
     (_ :write
        [document caret char]
        (-> (ihx-selection document caret :insert-mode true)

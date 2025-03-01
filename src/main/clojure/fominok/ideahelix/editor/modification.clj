@@ -7,20 +7,13 @@
     [fominok.ideahelix.editor.movement :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.util
-     :refer [inc-within-bounds dec-within-bounds get-caret-contents]
-     :rename {inc-within-bounds binc dec-within-bounds bdec}])
+     :refer [get-caret-contents]])
   (:import
     (com.intellij.openapi.command
       CommandProcessor)
     (com.intellij.openapi.command.impl
       FinishMarkAction
       StartMarkAction)))
-
-
-(defn into-insert-mode-prepend
-  [caret]
-  (let [selection-start (.getSelectionStart caret)]
-    (.moveToOffset caret selection-start)))
 
 
 (defn finish-undo
@@ -33,32 +26,27 @@
         nil)))
 
 
-(defn leave-insert-mode
-  [document caret]
-  (if (.hasSelection caret)
-    (when-not (or (degenerate? caret) (reversed? caret))
-      (.moveToOffset caret (bdec (.getOffset caret))))
-    (ensure-selection document caret)))
-
-
 (defn backspace
   [document caret]
   (let [offset (.getOffset caret)]
-    (.deleteString document (bdec offset) offset)))
+    (.deleteString document (max 0 offset) offset)))
 
 
 (defn delete-selection-contents
-  [document caret]
-  (.deleteString document (.getSelectionStart caret) (.getSelectionEnd caret))
-  (let [offset (.getOffset caret)]
-    (.setSelection caret offset (binc document offset))))
+  [{:keys [anchor offset] :as selection} document]
+  (let [[start end] (sort [anchor offset])]
+    (.deleteString document start (min (.getTextLength document) (inc end)))
+    (assoc selection :anchor start :offset start)))
 
 
 (defn insert-newline
-  [document caret]
-  (let [offset (.getOffset caret)]
-    (.insertString document offset "\n")
-    (.moveToOffset caret (binc document offset))))
+  [{:keys [offset in-append] :as selection} document]
+  (.insertString document (cond-> offset
+                            in-append inc)
+                 "\n")
+  (if in-append
+    (ihx-move-forward selection 1)
+    (ihx-nudge selection 1)))
 
 
 (defn start-undo
@@ -87,21 +75,21 @@
 
 
 (defn ihx-new-line-below
-  [selection document]
+  [selection editor document]
   (let [new-selection
         (-> (ihx-make-forward selection)
             (ihx-move-relative! :lines 1)
-            (ihx-move-line-start document)
+            (ihx-move-line-start editor document)
             ihx-shrink-selection)]
     (.insertString document (:offset new-selection) "\n")
     new-selection))
 
 
 (defn ihx-new-line-above
-  [selection document]
+  [selection editor document]
   (let [new-selection
         (-> (ihx-make-forward selection)
-            (ihx-move-line-start document)
+            (ihx-move-line-start editor document)
             ihx-shrink-selection)]
     (.insertString document (:offset new-selection) "\n")
     new-selection))
@@ -115,8 +103,9 @@
         (doall (for [caret carets
                      :let [text (get-caret-contents document caret)]]
                  (do
-                   (delete-selection-contents document caret)
-                   (into-insert-mode-prepend caret)
+                   (-> (ihx-selection document caret)
+                       (delete-selection-contents document)
+                       (ihx-apply-selection! document))
                    text)))]
     (-> project-state
         (assoc-in [:registers register] register-contents)
@@ -132,7 +121,9 @@
         (doall (for [caret carets
                      :let [text (get-caret-contents document caret)]]
                  (do
-                   (delete-selection-contents document caret)
+                   (-> (ihx-selection document caret)
+                       (delete-selection-contents document)
+                       (ihx-apply-selection! document))
                    text)))]
     (-> project-state
         (assoc-in [:registers register] register-contents)

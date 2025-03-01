@@ -5,22 +5,6 @@
 (ns fominok.ideahelix.editor.util)
 
 
-(defn inc-within-bounds
-  [document n]
-  (min (max 0 (dec (.getTextLength document))) (inc n)))
-
-
-(defn dec-within-bounds
-  [n]
-  (max 0 (dec n)))
-
-
-(defn for-each-caret
-  [editor f]
-  (let [model (.getCaretModel editor)]
-    (.runForEachCaret model f)))
-
-
 (defn get-caret-contents
   [document caret]
   (.getText document (.getSelectionRange caret)))
