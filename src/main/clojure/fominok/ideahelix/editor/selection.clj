@@ -533,6 +533,33 @@
           (= (:direction match-info) :open) {:open-char char :close-char (:match match-info)}
           :else {:open-char (:match match-info) :close-char char})))
 
+(defn find-matches
+  [{:keys [_ offset]} document char]
+  (let [{:keys [open-char close-char]} (get-open-close-chars char)
+        text (.getCharsSequence document)
+        curr-char (.charAt (.getCharsSequence document) offset)]
+    (if (and (not= open-char curr-char) (not= close-char curr-char))
+      {:left (previous-match text offset close-char open-char)
+       :right (next-match text offset open-char close-char)}
+      (cond
+        (= open-char close-char) nil
+        (= open-char curr-char) {:left offset
+                                 :right (next-match text (inc offset) open-char close-char)}
+        (= close-char curr-char) {:left (previous-match text (dec offset) close-char open-char)
+                                  :right offset}))))
+
+(defn ihx-select-inside
+  [selection document char]
+  (let [matches (find-matches selection document char)]
+    (when (not (nil? matches))
+      (assoc selection :offset (inc (:left matches)) :anchor (dec (:right matches))))))
+
+(defn ihx-select-around
+  [selection document char]
+  (let [matches (find-matches selection document char)]
+    (when (not (nil? matches))
+      (assoc selection :offset (:left matches) :anchor (:right matches)))))
+
 
 (defn ihx-surround-add
   [{:keys [offset anchor] :as selection} document char]
