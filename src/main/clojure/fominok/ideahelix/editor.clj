@@ -680,7 +680,7 @@
     [project state document caret char]
      (-> (ihx-selection document caret)
          (ihx-select-around document char)
-         (ihx-apply-selection! document))
+         (ihx-apply-selection! document))))
 
   ((:or :match :select-match)
    (\s
