@@ -634,6 +634,54 @@
          state)))
     (_ [state] (assoc state :pass true)))
 
+
+  (:match
+   (\i
+    [state] (assoc state :mode :match-inside))
+   (\a
+    [state] (assoc state :mode :match-around)))
+
+  (:select-match
+   (\i
+    [state] (assoc state :mode :select-match-inside))
+   (\a
+    [state] (assoc state :mode :select-match-around)))
+
+  (:match-inside
+   (_
+    "Select inside"
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-inside document char)
+         (ihx-apply-selection! document))
+    [state] (assoc state :mode :normal)))
+
+  (:select-match-inside
+   (_
+    "Select inside"
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-inside document char)
+         (ihx-apply-selection! document))
+    [state] (assoc state :mode :select)))
+
+  (:match-around
+   (_
+    "Select around"
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-around document char)
+         (ihx-apply-selection! document))
+    [state] (assoc state :mode :normal)))
+
+  (:select-match-around
+   (_
+    "Select around"
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-around document char)
+         (ihx-apply-selection! document))
+
   ((:or :match :select-match)
    (\s
      [state] (assoc state :mode :match-surround-add)))
