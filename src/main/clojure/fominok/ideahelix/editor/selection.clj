@@ -492,19 +492,6 @@
           (ihx-apply-selection! document)))))
 
 
-(defn ihx-surround-add
-  [{:keys [offset anchor] :as selection} document char]
-  (when (printable-char? char)
-    (cond (> offset anchor)
-          (do (.insertString document (inc offset) (str char))
-              (.insertString document anchor (str char))
-              (assoc selection :offset (+ 2 offset) :anchor anchor))
-          :else
-          (do (.insertString document (inc anchor) (str char))
-              (.insertString document offset (str char))
-              (assoc selection :offset offset :anchor (+ 2 anchor))))))
-
-
 (def char-match
   {\( {:match \) :direction :open}
    \) {:match \( :direction :close}
@@ -545,6 +532,20 @@
     (cond (nil? match-info) {:open-char char :close-char char}
           (= (:direction match-info) :open) {:open-char char :close-char (:match match-info)}
           :else {:open-char (:match match-info) :close-char char})))
+
+
+(defn ihx-surround-add
+  [{:keys [offset anchor] :as selection} document char]
+  (when (printable-char? char)
+    (let [{:keys [open-char close-char]} (get-open-close-chars char)]
+    (cond (> offset anchor)
+          (do (.insertString document (inc offset) (str close-char))
+              (.insertString document anchor (str open-char))
+              (assoc selection :offset (+ 2 offset) :anchor anchor))
+          :else
+          (do (.insertString document (inc anchor) (str close-char))
+              (.insertString document offset (str open-char))
+              (assoc selection :offset offset :anchor (+ 2 anchor)))))))
 
 
 (defn ihx-surround-delete
