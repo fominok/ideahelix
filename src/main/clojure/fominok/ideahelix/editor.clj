@@ -8,6 +8,7 @@
     [fominok.ideahelix.editor.jumplist :refer :all]
     [fominok.ideahelix.editor.modification :refer :all]
     [fominok.ideahelix.editor.registers :refer :all]
+    [fominok.ideahelix.search :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.ui :as ui]
     [fominok.ideahelix.editor.util :refer [get-editor-height]]
@@ -570,11 +571,8 @@
     (\f
       "File finder"
       [state project editor]
-      (let [manager (.. SearchEverywhereManager (getInstance project))
-            data-context (.getDataContext editor)
-            action-event (AnActionEvent/createFromDataContext
-                           ActionPlaces/KEYBOARD_SHORTCUT nil data-context)]
-        (.show manager "FileSearchEverywhereContributor" nil action-event)
+      (do
+        (search-file-name project editor)
         (assoc state :mode :normal)))
     (\r
       "Rename symbol"
