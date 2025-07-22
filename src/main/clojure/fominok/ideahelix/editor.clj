@@ -8,11 +8,11 @@
     [fominok.ideahelix.editor.jumplist :refer :all]
     [fominok.ideahelix.editor.modification :refer :all]
     [fominok.ideahelix.editor.registers :refer :all]
-    [fominok.ideahelix.search :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.ui :as ui]
     [fominok.ideahelix.editor.util :refer [get-editor-height]]
-    [fominok.ideahelix.keymap :refer [defkeymap]])
+    [fominok.ideahelix.keymap :refer [defkeymap]]
+    [fominok.ideahelix.search :refer :all])
   (:import
     (com.intellij.codeInsight.lookup
       LookupManager)
@@ -634,51 +634,51 @@
 
 
   (:match
-   (\i
-    [state] (assoc state :mode :match-inside))
-   (\a
-    [state] (assoc state :mode :match-around)))
+    (\i
+      [state] (assoc state :mode :match-inside))
+    (\a
+      [state] (assoc state :mode :match-around)))
 
   (:select-match
-   (\i
-    [state] (assoc state :mode :select-match-inside))
-   (\a
-    [state] (assoc state :mode :select-match-around)))
+    (\i
+      [state] (assoc state :mode :select-match-inside))
+    (\a
+      [state] (assoc state :mode :select-match-around)))
 
   (:match-inside
-   (_
-    "Select inside"
-    [project state document caret char]
-     (-> (ihx-selection document caret)
-         (ihx-select-inside document char)
-         (ihx-apply-selection! document))
-    [state] (assoc state :mode :normal)))
+    (_
+      "Select inside"
+      [project state document caret char]
+      (-> (ihx-selection document caret)
+          (ihx-select-inside document char)
+          (ihx-apply-selection! document))
+      [state] (assoc state :mode :normal)))
 
   (:select-match-inside
-   (_
-    "Select inside"
-    [project state document caret char]
-     (-> (ihx-selection document caret)
-         (ihx-select-inside document char)
-         (ihx-apply-selection! document))
-    [state] (assoc state :mode :select)))
+    (_
+      "Select inside"
+      [project state document caret char]
+      (-> (ihx-selection document caret)
+          (ihx-select-inside document char)
+          (ihx-apply-selection! document))
+      [state] (assoc state :mode :select)))
 
   (:match-around
-   (_
-    "Select around"
-    [project state document caret char]
-     (-> (ihx-selection document caret)
-         (ihx-select-around document char)
-         (ihx-apply-selection! document))
-    [state] (assoc state :mode :normal)))
+    (_
+      "Select around"
+      [project state document caret char]
+      (-> (ihx-selection document caret)
+          (ihx-select-around document char)
+          (ihx-apply-selection! document))
+      [state] (assoc state :mode :normal)))
 
   (:select-match-around
-   (_
-    "Select around"
-    [project state document caret char]
-     (-> (ihx-selection document caret)
-         (ihx-select-around document char)
-         (ihx-apply-selection! document))))
+    (_
+      "Select around"
+      [project state document caret char]
+      (-> (ihx-selection document caret)
+          (ihx-select-around document char)
+          (ihx-apply-selection! document))))
 
   ((:or :match :select-match)
    (\s

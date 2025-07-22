@@ -1,22 +1,49 @@
 (ns fominok.ideahelix.search
   (:import
-           (com.intellij.openapi.application ModalityState ReadAction)
-           (com.intellij.openapi.editor Editor)
-           (com.intellij.openapi.fileEditor FileEditorManager)
-           (com.intellij.openapi.project Project ProjectUtil ProjectUtilCore)
-           (com.intellij.openapi.ui.popup JBPopupFactory)
-           (com.intellij.psi.codeStyle NameUtil)
-           (com.intellij.psi.search FilenameIndex GlobalSearchScope)
-           (com.intellij.ui.components JBList JBScrollPane)
-           (com.intellij.util Alarm Alarm$ThreadToUse)
-           (com.intellij.util.concurrency AppExecutorUtil)
-           (java.awt BorderLayout Dimension)
-           (java.awt.event ActionEvent)
-           (javax.swing AbstractAction DefaultListModel JPanel JTextField KeyStroke ListSelectionModel)
-           (javax.swing.event DocumentListener)))
+    (com.intellij.openapi.application
+      ModalityState
+      ReadAction)
+    (com.intellij.openapi.editor
+      Editor)
+    (com.intellij.openapi.fileEditor
+      FileEditorManager)
+    (com.intellij.openapi.project
+      Project
+      ProjectUtil
+      ProjectUtilCore)
+    (com.intellij.openapi.ui.popup
+      JBPopupFactory)
+    (com.intellij.psi.codeStyle
+      NameUtil)
+    (com.intellij.psi.search
+      FilenameIndex
+      GlobalSearchScope)
+    (com.intellij.ui.components
+      JBList
+      JBScrollPane)
+    (com.intellij.util
+      Alarm
+      Alarm$ThreadToUse)
+    (com.intellij.util.concurrency
+      AppExecutorUtil)
+    (java.awt
+      BorderLayout
+      Dimension)
+    (java.awt.event
+      ActionEvent)
+    (javax.swing
+      AbstractAction
+      DefaultListModel
+      JPanel
+      JTextField
+      KeyStroke
+      ListSelectionModel)
+    (javax.swing.event
+      DocumentListener)))
 
 
-(defn filter-list [alarm ^JTextField input ^JBList list ^DefaultListModel model files]
+(defn filter-list
+  [alarm ^JTextField input ^JBList list ^DefaultListModel model files]
   (.cancelAllRequests alarm)
   (.addRequest
     alarm
@@ -41,6 +68,7 @@
     100
     true))
 
+
 (defn relativize-path
   [project path]
   (let [base-path (.getPath (ProjectUtil/guessProjectDir project))]
@@ -48,20 +76,23 @@
       (.substring path (inc (count base-path)))
       path)))
 
+
 (defn get-filenames!
   [project result]
   (.. (^[Callable] ReadAction/nonBlocking
-          (fn []
-            (into {} (keep (fn [name] (when-let [file (first (FilenameIndex/getVirtualFilesByName name (GlobalSearchScope/projectScope project)))]
-                                        [(relativize-path project (.getPath file)) file]))
-                           (FilenameIndex/getAllFilenames project)))))
-    (finishOnUiThread
-      (ModalityState/any)
-      #(vreset! result %))
-    (submit (AppExecutorUtil/getAppExecutorService))))
+       (fn []
+         (into {} (keep (fn [name]
+                          (when-let [file (first (FilenameIndex/getVirtualFilesByName name (GlobalSearchScope/projectScope project)))]
+                            [(relativize-path project (.getPath file)) file]))
+                        (FilenameIndex/getAllFilenames project)))))
+      (finishOnUiThread
+        (ModalityState/any)
+        #(vreset! result %))
+      (submit (AppExecutorUtil/getAppExecutorService))))
 
 
-(defn search-file-name [project ^Editor parent]
+(defn search-file-name
+  [project ^Editor parent]
   (let [files (volatile! {})
         alarm (Alarm. Alarm$ThreadToUse/POOLED_THREAD project)
         model (DefaultListModel.)
@@ -89,20 +120,23 @@
     (doto (.getActionMap input)
       (.put "selectNext"
             (proxy [AbstractAction] []
-              (actionPerformed [^ActionEvent _]
+              (actionPerformed
+                [^ActionEvent _]
                 (let [i (min (inc (.getSelectedIndex list)) (dec (.. list (getModel) (getSize))))]
                   (.setSelectedIndex list i)
                   (.ensureIndexIsVisible list i)))))
       (.put "selectPrevious"
             (proxy [AbstractAction] []
-              (actionPerformed [^ActionEvent _]
+              (actionPerformed
+                [^ActionEvent _]
                 (let [i (max (dec (.getSelectedIndex list)) 0)]
                   (.setSelectedIndex list i)
                   (.ensureIndexIsVisible list i))))))
 
     (.addActionListener input
                         (proxy [java.awt.event.ActionListener] []
-                          (actionPerformed [^ActionEvent _]
+                          (actionPerformed
+                            [^ActionEvent _]
                             (let [selected (.getSelectedValue list)]
                               (.cancel popup)
                               (when-let [file (get @files selected)]
@@ -111,7 +145,9 @@
     (.addDocumentListener (.getDocument input)
                           (proxy [DocumentListener] []
                             (insertUpdate [_] (filter-list alarm input list model @files))
+
                             (removeUpdate [_] (filter-list alarm input list model @files))
+
                             (changedUpdate [_] nil)))
 
     (.showInCenterOf popup (.getContentComponent parent))))
