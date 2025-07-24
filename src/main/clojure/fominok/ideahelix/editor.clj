@@ -108,13 +108,13 @@
    (\u
      "Undo"
      [editor] (actions editor IdeActions/ACTION_UNDO)
-     [document editor caret] (-> (ihx-selection document caret)
-                                 (ihx-apply-selection! document)))
+     [document caret] (-> (ihx-selection document caret)
+                          (ihx-apply-selection! document)))
    ((:shift \U)
     "Redo"
     [editor] (actions editor IdeActions/ACTION_REDO)
-    [document editor caret] (-> (ihx-selection document caret)
-                                (ihx-apply-selection! document)))
+    [document caret] (-> (ihx-selection document caret)
+                         (ihx-apply-selection! document)))
    (\y
      "Yank"
      [state editor document]
@@ -162,7 +162,7 @@
      (replace-selections state project editor document))
    (\a
      "Append to selections"
-     [document editor caret]
+     [document caret]
      (-> (ihx-selection document caret)
          ihx-make-forward
          (ihx-apply-selection! document))
@@ -181,7 +181,7 @@
     (into-insert-mode project state editor))
    (\i
      "Prepend to selections"
-     [document editor caret]
+     [document caret]
      (-> (ihx-selection document caret)
          ihx-make-backward
          (ihx-apply-selection! document))
@@ -198,18 +198,18 @@
     (into-insert-mode project state editor))
    ((:or (:alt \;) (:alt \u2026))
     "Flip selection" :scroll
-    [document editor caret] (-> (ihx-selection document caret)
-                                flip-selection
-                                (ihx-apply-selection! document)))
+    [document caret] (-> (ihx-selection document caret)
+                         flip-selection
+                         (ihx-apply-selection! document)))
    ((:or (:alt \:) (:alt \u00DA))
     "Make selections forward"
-    [document editor caret]
+    [document caret]
     (-> (ihx-selection document caret)
         ihx-make-forward
         (ihx-apply-selection! document)))
    (\;
      "Shrink selections to 1 char"
-     [document editor caret]
+     [document caret]
      (-> (ihx-selection document caret)
          ihx-shrink-selection
          (ihx-apply-selection! document)))
@@ -292,7 +292,7 @@
             (ihx-apply-selection! document))))
     ((:shift \E)
      "Select WORD end" :scroll
-     [state document editor caret]
+     [state document caret]
      (dotimes [_ (get-prefix state)]
        (-> (ihx-selection document caret)
            (ihx-long-word-end! document false)
@@ -306,15 +306,14 @@
             (ihx-apply-selection! document))))
     ((:shift \B)
      "Select WORD backward" :scroll
-     [state document editor caret]
-
+     [state document caret]
      (dotimes [_ (get-prefix state)]
        (-> (ihx-selection document caret)
            (ihx-long-word-backward! document false)
            (ihx-apply-selection! document))))
     ((:or \j KeyEvent/VK_DOWN)
      "Move carets down" :scroll
-     [state document editor caret]
+     [state document caret]
      (dotimes [_ (get-prefix state)]
        (-> (ihx-selection document caret)
            (ihx-move-relative! :lines 1)
@@ -322,7 +321,7 @@
            (ihx-apply-selection-preserving document))))
     ((:or \k KeyEvent/VK_UP)
      "Move carets up" :scroll
-     [state document editor caret]
+     [state document caret]
      (dotimes [_ (get-prefix state)]
        (-> (ihx-selection document caret)
            (ihx-move-relative! :lines -1)
@@ -330,14 +329,14 @@
            (ihx-apply-selection-preserving document))))
     ((:or \h KeyEvent/VK_LEFT)
      "Move carets left" :scroll
-     [state document editor caret]
+     [state document caret]
      (-> (ihx-selection document caret)
          (ihx-move-backward (get-prefix state))
          ihx-shrink-selection
          (ihx-apply-selection! document)))
     ((:or \l KeyEvent/VK_RIGHT)
      "Move carets right" :scroll
-     [state document editor caret]
+     [state document caret]
      (-> (ihx-selection document caret)
          (ihx-move-forward (get-prefix state))
          ihx-shrink-selection
@@ -436,27 +435,27 @@
            (ihx-apply-selection! document))))
     ((:or \j KeyEvent/VK_DOWN)
      "Move carets down extending" :scroll
-     [state document editor caret]
+     [state document caret]
      (dotimes [_ (get-prefix state)]
        (-> (ihx-selection document caret)
            (ihx-move-relative! :lines 1)
            (ihx-apply-selection-preserving document))))
     ((:or \k KeyEvent/VK_UP)
      "Move carets up extending" :scroll
-     [state document editor caret]
+     [state document caret]
      (dotimes [_ (get-prefix state)]
        (-> (ihx-selection document caret)
            (ihx-move-relative! :lines -1)
            (ihx-apply-selection-preserving document))))
     ((:or \h KeyEvent/VK_LEFT)
      "Move carets left extending" :scroll
-     [state document editor caret]
+     [state document caret]
      (-> (ihx-selection document caret)
          (ihx-move-backward (get-prefix state))
          (ihx-apply-selection! document)))
     ((:or \l KeyEvent/VK_RIGHT)
      "Move carets right extending" :scroll
-     [state document editor caret]
+     [state document caret]
      (-> (ihx-selection document caret)
          (ihx-move-forward (get-prefix state))
          (ihx-apply-selection! document)))
@@ -648,7 +647,7 @@
   (:match-inside
     (_
       "Select inside"
-      [project state document caret char]
+      [document caret char]
       (-> (ihx-selection document caret)
           (ihx-select-inside document char)
           (ihx-apply-selection! document))
@@ -657,7 +656,7 @@
   (:select-match-inside
     (_
       "Select inside"
-      [project state document caret char]
+      [document caret char]
       (-> (ihx-selection document caret)
           (ihx-select-inside document char)
           (ihx-apply-selection! document))
@@ -666,7 +665,7 @@
   (:match-around
     (_
       "Select around"
-      [project state document caret char]
+      [document caret char]
       (-> (ihx-selection document caret)
           (ihx-select-around document char)
           (ihx-apply-selection! document))
@@ -675,7 +674,7 @@
   (:select-match-around
     (_
       "Select around"
-      [project state document caret char]
+      [document caret char]
       (-> (ihx-selection document caret)
           (ihx-select-around document char)
           (ihx-apply-selection! document))))
@@ -691,7 +690,7 @@
   (:match
     (\m
       "Goto matching bracket"
-      [project document editor caret]
+      [document caret]
       (-> (ihx-selection document caret)
           (ihx-goto-matching document)
           ihx-shrink-selection
@@ -701,7 +700,7 @@
   (:select-match
     (\m
       "Goto matching bracket"
-      [document editor caret]
+      [document caret]
       (-> (ihx-selection document caret)
           (ihx-goto-matching document)
           (ihx-apply-selection! document))
@@ -710,7 +709,7 @@
   (:match-surround-add
     (_
       "Surround add" :write
-      [project state document editor caret char]
+      [document caret char]
       (-> (ihx-selection document caret)
           (ihx-surround-add document char)
           (ihx-apply-selection! document))))
@@ -718,7 +717,7 @@
   (:match-surround-delete
     (_
       "Surround delete" :write
-      [document editor caret char]
+      [document caret char]
       (-> (ihx-selection document caret)
           (ihx-surround-delete document char)
           (ihx-apply-selection! document))
