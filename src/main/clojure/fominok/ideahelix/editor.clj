@@ -109,12 +109,12 @@
      "Undo"
      [editor] (actions editor IdeActions/ACTION_UNDO)
      [document editor caret] (-> (ihx-selection document caret)
-                          (ihx-apply-selection! document)))
+                                 (ihx-apply-selection! document)))
    ((:shift \U)
     "Redo"
     [editor] (actions editor IdeActions/ACTION_REDO)
     [document editor caret] (-> (ihx-selection document caret)
-                         (ihx-apply-selection! document)))
+                                (ihx-apply-selection! document)))
    (\y
      "Yank"
      [state editor document]
@@ -199,8 +199,8 @@
    ((:or (:alt \;) (:alt \u2026))
     "Flip selection" :scroll
     [document editor caret] (-> (ihx-selection document caret)
-                         flip-selection
-                         (ihx-apply-selection! document)))
+                                flip-selection
+                                (ihx-apply-selection! document)))
    ((:or (:alt \:) (:alt \u00DA))
     "Make selections forward"
     [document editor caret]
@@ -609,7 +609,7 @@
     ((:or \w (:ctrl \u0017))
      "Switch split"
      [editor] (actions editor "NextSplitter")
-      [state] (assoc state :mode :normal))
+     [state] (assoc state :mode :normal))
     (\o
       [editor] (actions editor "UnsplitAll")
       [state] (assoc state :mode :normal))

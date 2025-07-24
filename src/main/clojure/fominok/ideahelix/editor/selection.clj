@@ -646,6 +646,7 @@
       (.setSelection caret offset (inc offset))
       (.moveToOffset caret offset))))
 
+
 (defn ihx-surround-find
   [state editor document char]
   (if-not (printable-char? char)
@@ -670,8 +671,9 @@
               (add-caret-at model editor right false)
               (recur (rest remaining-pairs) false)))
           (assoc state :pre-match-selections original-selections
-                       :match-pairs pairs
-                       :mode :match-replace))))))
+                 :match-pairs pairs
+                 :mode :match-replace))))))
+
 
 (defn ihx-surround-replace
   [state editor document char]
