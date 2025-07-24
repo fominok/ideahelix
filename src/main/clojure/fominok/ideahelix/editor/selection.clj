@@ -85,7 +85,7 @@
         (cond
           is-broken offset
           is-forward start
-          :default (max 0 (dec end)))]
+          :else (max 0 (dec end)))]
     (->IhxSelection caret anchor offset in-append)))
 
 
@@ -249,7 +249,7 @@
                 "select:"
                 "Select in selections"
                 (Messages/getQuestionIcon))
-        pattern (when (not (empty? input)) (re-pattern input))
+        pattern (when (seq input) (re-pattern input))
         matches
         (and pattern
              (->> (.getAllCarets model)
@@ -506,15 +506,16 @@
 (defn next-match
   [text offset opener target]
   (loop [to-find 1 text (.subSequence text offset (.length text)) acc-offset offset]
-    (let [target-offset (find-next-occurrence text {:pos (set [opener target])})
-          found (.charAt text target-offset)
-          text (.subSequence text (inc target-offset) (.length text))
-          acc-offset (inc acc-offset)]
-      (if (= found target) ; must check first if we found match in case match = char
-        (if (= to-find 1)
-          (+ acc-offset target-offset -1)
-          (recur (dec to-find) text (+ acc-offset target-offset)))
-        (recur (inc to-find) text (+ acc-offset target-offset))))))
+    (let [target-offset (find-next-occurrence text {:pos (set [opener target])})]
+      (when target-offset
+        (let [found (.charAt text target-offset)
+              text (.subSequence text (inc target-offset) (.length text))
+              acc-offset (+ acc-offset target-offset 1)]
+          (if (= found target)
+            (if (= to-find 1)
+              (dec acc-offset)
+              (recur (dec to-find) text acc-offset))
+            (recur (inc to-find) text acc-offset)))))))
 
 
 (defn previous-match
@@ -523,7 +524,7 @@
         idx (- len offset 1)
         text (-> (StringBuilder. text) .reverse)
         res (next-match text idx opener target)]
-    (- len res 1)))
+    (when res (- len res 1))))
 
 
 (defn get-open-close-chars
@@ -619,3 +620,77 @@
                      :open (next-match text (inc offset) opener match)
                      :close (previous-match text (dec offset) opener match))]
         (assoc selection :offset offset)))))
+
+
+(defn- find-bracket-pair
+  "Finds left and right bracket positions for the given offset, text, and chars."
+  [text offset open-char close-char]
+  (when-let [curr-char (and (< offset (count text)) (.charAt text offset))]
+    (let [pair (if (and (not= open-char curr-char) (not= close-char curr-char))
+                 [(previous-match text offset close-char open-char)
+                  (next-match text offset open-char close-char)]
+                 (cond
+                   (= open-char curr-char) [offset (next-match text (inc offset) open-char close-char)]
+                   (= close-char curr-char) [(previous-match text (dec offset) close-char open-char) offset]))]
+      (when (and (first pair) (second pair))
+        pair))))
+
+
+(defn- add-caret-at
+  "Adds a caret at the given offset (or uses primary if specified), sets single-char selection."
+  [model editor offset use-primary?]
+  (let [caret (if use-primary?
+                (.getPrimaryCaret model)
+                (.addCaret model (.offsetToVisualPosition editor offset) false))]
+    (when caret
+      (.setSelection caret offset (inc offset))
+      (.moveToOffset caret offset))))
+
+
+(defn ihx-surround-find
+  [state editor document char]
+  (if-not (printable-char? char)
+    state
+    (let [model (.getCaretModel editor)
+          original-carets (.getAllCarets model)
+          original-selections (mapv #(ihx-selection document % :insert-mode false) original-carets)
+          text (.getCharsSequence document)
+          {:keys [open-char close-char]} (get-open-close-chars char)
+          finder (fn [acc sel]
+                   (let [pair (find-bracket-pair text (:offset sel) open-char close-char)]
+                     (if pair (conj acc pair) acc)))
+          pairs (reduce finder [] original-selections)]
+      (if (empty? pairs)
+        (assoc state :mode :normal)
+        (do
+          (.removeSecondaryCarets model)
+          (loop [remaining-pairs pairs
+                 is-first? true]
+            (when-let [[left right] (first remaining-pairs)]
+              (add-caret-at model editor left is-first?)
+              (add-caret-at model editor right false)
+              (recur (rest remaining-pairs) false)))
+          (assoc state :pre-match-selections original-selections
+                 :match-pairs pairs
+                 :mode :match-replace))))))
+
+
+(defn ihx-surround-replace
+  [state editor document char]
+  (if-not (printable-char? char)
+    state
+    (let [{:keys [open-char close-char]} (get-open-close-chars char)
+          pairs (:match-pairs state)
+          model (.getCaretModel editor)]
+      (when (seq pairs)
+        (doseq [[left right] pairs]
+          (.replaceString document left (inc left) (str open-char))
+          (.replaceString document right (inc right) (str close-char)))
+        (.removeSecondaryCarets model)
+        (doseq [[idx sel] (map-indexed vector (:pre-match-selections state))]
+          (let [caret (if (zero? idx)
+                        (.getPrimaryCaret model)
+                        (.addCaret model (.offsetToVisualPosition editor (:offset sel)) false))]
+            (when caret
+              (ihx-apply-selection! (assoc sel :caret caret) document)))))
+      (assoc state :mode :normal :pre-match-selections nil :match-pairs nil))))

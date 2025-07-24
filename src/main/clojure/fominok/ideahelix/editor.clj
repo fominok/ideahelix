@@ -307,7 +307,6 @@
     ((:shift \B)
      "Select WORD backward" :scroll
      [state document caret]
-
      (dotimes [_ (get-prefix state)]
        (-> (ihx-selection document caret)
            (ihx-long-word-backward! document false)
@@ -648,7 +647,7 @@
   (:match-inside
     (_
       "Select inside"
-      [project state document caret char]
+      [document caret char]
       (-> (ihx-selection document caret)
           (ihx-select-inside document char)
           (ihx-apply-selection! document))
@@ -657,7 +656,7 @@
   (:select-match-inside
     (_
       "Select inside"
-      [project state document caret char]
+      [document caret char]
       (-> (ihx-selection document caret)
           (ihx-select-inside document char)
           (ihx-apply-selection! document))
@@ -666,7 +665,7 @@
   (:match-around
     (_
       "Select around"
-      [project state document caret char]
+      [document caret char]
       (-> (ihx-selection document caret)
           (ihx-select-around document char)
           (ihx-apply-selection! document))
@@ -675,40 +674,23 @@
   (:select-match-around
     (_
       "Select around"
-      [project state document caret char]
+      [document caret char]
       (-> (ihx-selection document caret)
           (ihx-select-around document char)
           (ihx-apply-selection! document))))
 
   ((:or :match :select-match)
    (\s
-     [state] (assoc state :mode :match-surround-add)))
-
-  (:match-surround-add
-    (_
-      "Surround add" :write
-      [project state document caret char]
-      (-> (ihx-selection document caret)
-          (ihx-surround-add document char)
-          (ihx-apply-selection! document))))
-
-  ((:or :match :select-match)
+     [state] (assoc state :mode :match-surround-add))
    (\d
-     [state] (assoc state :mode :match-surround-delete)))
-
-  (:match-surround-delete
-    (_
-      "Surround delete" :write
-      [project document caret char]
-      (-> (ihx-selection document caret)
-          (ihx-surround-delete document char)
-          (ihx-apply-selection! document))
-      [state] (assoc state :mode :normal)))
+     [state] (assoc state :mode :match-surround-delete))
+   (\r
+     [state] (assoc state :mode :match-find)))
 
   (:match
     (\m
       "Goto matching bracket"
-      [project document editor caret]
+      [document caret]
       (-> (ihx-selection document caret)
           (ihx-goto-matching document)
           ihx-shrink-selection
@@ -718,11 +700,41 @@
   (:select-match
     (\m
       "Goto matching bracket"
-      [project document editor caret]
+      [document caret]
       (-> (ihx-selection document caret)
           (ihx-goto-matching document)
           (ihx-apply-selection! document))
-      [state] (assoc state :mode :select))))
+      [state] (assoc state :mode :select)))
+
+  (:match-surround-add
+    (_
+      "Surround add" :write
+      [document caret char]
+      (-> (ihx-selection document caret)
+          (ihx-surround-add document char)
+          (ihx-apply-selection! document))
+      [state] (assoc state :mode :normal)))
+
+  (:match-surround-delete
+    (_
+      "Surround delete" :write
+      [document caret char]
+      (-> (ihx-selection document caret)
+          (ihx-surround-delete document char)
+          (ihx-apply-selection! document))
+      [state] (assoc state :mode :normal)))
+
+  (:match-find
+    (_
+      "Find the matching brackets"
+      [state editor document char]
+      (ihx-surround-find state editor document char)))
+
+  (:match-replace
+    (_
+      "Replace the matching brackets" :write
+      [state editor document char]
+      (ihx-surround-replace state editor document char))))
 
 
 (defn handle-editor-event
