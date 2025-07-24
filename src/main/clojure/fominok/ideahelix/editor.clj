@@ -712,7 +712,8 @@
       [document caret char]
       (-> (ihx-selection document caret)
           (ihx-surround-add document char)
-          (ihx-apply-selection! document))))
+          (ihx-apply-selection! document))
+      [state] (assoc state :mode :normal)))
 
   (:match-surround-delete
     (_
