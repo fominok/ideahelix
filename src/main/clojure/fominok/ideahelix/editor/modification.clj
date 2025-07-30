@@ -82,4 +82,5 @@
                    text)))]
     (-> project-state
         (assoc-in [:registers register] register-contents)
+        (assoc :mode :normal)
         (assoc :prefix nil))))
