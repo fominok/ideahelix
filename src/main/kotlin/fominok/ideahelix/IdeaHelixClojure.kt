@@ -13,6 +13,7 @@ object IdeaHelixClojure {
 
     private lateinit var pushEditorEventFn: IFn
     private lateinit var focusEditorFn: IFn
+    private lateinit var releaseEditorFn: IFn
     private lateinit var currentModeFn: IFn
 
     @Synchronized
@@ -31,6 +32,7 @@ object IdeaHelixClojure {
 
             pushEditorEventFn = Clojure.`var`("fominok.ideahelix.core", "push-editor-event")
             focusEditorFn = Clojure.`var`("fominok.ideahelix.core", "focus-editor")
+            releaseEditorFn = Clojure.`var`("fominok.ideahelix.core", "release-editor")
             currentModeFn = Clojure.`var`("fominok.ideahelix.core", "current-mode")
             loaded = true
         } finally {
@@ -46,6 +48,11 @@ object IdeaHelixClojure {
     fun focusEditor(project: Project, editor: Editor) {
         ensureLoaded()
         focusEditorFn.invoke(project, editor)
+    }
+
+    fun releaseEditor(project: Project, editor: Editor) {
+        ensureLoaded()
+        releaseEditorFn.invoke(project, editor)
     }
 
     fun currentMode(project: Project): String {

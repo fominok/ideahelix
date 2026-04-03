@@ -1,5 +1,6 @@
 package fominok.ideahelix
 
+import com.intellij.ide.IdeEventQueue
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.editor.actionSystem.TypedActionHandler
 import com.intellij.openapi.editor.impl.EditorImpl
@@ -17,7 +18,7 @@ class IdeaHelixTypedActionHandler(
             return
         }
 
-        val modifiers = inferredModifiers(charTyped)
+        val modifiers = currentKeyEvent()?.modifiersEx ?: inferredModifiers(charTyped)
         val event = KeyEvent(
             editorImpl.contentComponent,
             KeyEvent.KEY_PRESSED,
@@ -31,6 +32,10 @@ class IdeaHelixTypedActionHandler(
         if (!handled) {
             originalHandler.execute(editor, charTyped, context)
         }
+    }
+
+    private fun currentKeyEvent(): KeyEvent? {
+        return IdeEventQueue.getInstance().trueCurrentEvent as? KeyEvent
     }
 
     private fun inferredModifiers(charTyped: Char): Int {

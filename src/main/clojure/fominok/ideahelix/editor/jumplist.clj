@@ -23,24 +23,45 @@
   (dissoc selection :caret :in-append))
 
 
+(defn- ensure-project-state
+  [project-state]
+  (or project-state {:mode :normal}))
+
+
 (defn jumplist-add
   [project project-state]
-  (let [editor (.. (FileEditorManager/getInstance project) getSelectedTextEditor)
-        document (.getDocument editor)
-        {:keys [stack pointer] :or {pointer 0}} (:jumplist project-state)
-        model (.getCaretModel editor)
-        primary-caret (.getPrimaryCaret model)
-        secondary-carets (filter (partial not= primary-caret) (.getAllCarets model))
-        new-stack (into [] (take pointer stack))
-        serialize (comp serialize-selection (partial ihx-selection document))]
-    (-> project-state
-        (assoc-in
-          [:jumplist :stack]
-          (conj new-stack
-                {:file (.getVirtualFile editor)
+  (if-let [editor (.. (FileEditorManager/getInstance project) getSelectedTextEditor)]
+    (let [document (.getDocument editor)
+          {:keys [stack pointer] :or {pointer -1}} (:jumplist project-state)
+          model (.getCaretModel editor)
+          primary-caret (.getPrimaryCaret model)
+          secondary-carets (filter (partial not= primary-caret) (.getAllCarets model))
+          new-stack (into [] (take (inc pointer) stack))
+          serialize (comp serialize-selection (partial ihx-selection document))
+          entry {:file (.getVirtualFile editor)
                  :primary-caret    (serialize primary-caret)
-                 :secondary-carets (doall (map serialize secondary-carets))}))
-        (assoc-in [:jumplist :pointer] (inc pointer)))))
+                 :secondary-carets (doall (map serialize secondary-carets))}
+          last-entry (peek new-stack)]
+      (if (= entry last-entry)
+        (-> project-state
+            (assoc-in [:jumplist :stack] new-stack)
+            (assoc-in [:jumplist :pointer] (dec (count new-stack))))
+        (-> project-state
+            (assoc-in [:jumplist :stack] (conj new-stack entry))
+            (assoc-in [:jumplist :pointer] (count new-stack)))))
+    project-state))
+
+
+(defn capture-current-location!
+  [state-atom project]
+  (swap! state-atom update project #(jumplist-add project (ensure-project-state %))))
+
+
+(defn capture-current-location-later!
+  [state-atom project]
+  (UIUtil/invokeLaterIfNeeded
+    (fn []
+      (capture-current-location! state-atom project))))
 
 
 (defn- open-file-current-window
@@ -76,7 +97,7 @@
 
 (defn jumplist-backward!
   [project-state project]
-  (let [{:keys [pointer] :or {pointer 0}} (:jumplist project-state)
+  (let [{:keys [pointer] :or {pointer -1}} (:jumplist project-state)
         new-pointer (dec pointer)]
     (if (>= new-pointer 0)
       (jumplist-apply! project-state project new-pointer)
@@ -85,9 +106,9 @@
 
 (defn jumplist-forward!
   [project-state project]
-  (let [{:keys [pointer stack] :or {pointer 0}} (:jumplist project-state)
+  (let [{:keys [pointer stack] :or {pointer -1}} (:jumplist project-state)
         new-pointer (inc pointer)]
-    (if (< pointer (count stack))
-      (assoc-in (jumplist-apply! project-state project pointer)
+    (if (< new-pointer (count stack))
+      (assoc-in (jumplist-apply! project-state project new-pointer)
                 [:jumplist :pointer] new-pointer)
       project-state)))

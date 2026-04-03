@@ -9,9 +9,10 @@ package fominok.ideahelix
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.event.EditorFactoryEvent
+import com.intellij.openapi.editor.event.EditorFactoryListener
 import com.intellij.openapi.editor.impl.EditorImpl
 import com.intellij.openapi.editor.ex.EditorEventMulticasterEx
-import com.intellij.openapi.editor.ex.EditorSettingsExternalizable
 import com.intellij.openapi.editor.ex.FocusChangeListener
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
@@ -22,11 +23,6 @@ import com.intellij.openapi.vfs.VirtualFile
 
 class Init : ProjectActivity {
     override suspend fun execute(project: Project) {
-        val settings = EditorSettingsExternalizable.getInstance()
-        ApplicationManager.getApplication().invokeAndWait {
-            settings.isVariableInplaceRenameEnabled = false;
-        }
-
         val fileEditorManager = FileEditorManager.getInstance(project)
         val applicationManager = ApplicationManager.getApplication()
 
@@ -59,6 +55,16 @@ class Init : ProjectActivity {
                     maybeRegisterNativeInput(project, editor)
                     IdeaHelixClojure.focusEditor(project, editor)
                 })
+            }
+        }, project)
+
+        EditorFactory.getInstance().addEditorFactoryListener(object : EditorFactoryListener {
+            override fun editorReleased(event: EditorFactoryEvent) {
+                val editor = event.editor
+                val editorProject = editor.project ?: return
+                if (editorProject != project) return
+
+                IdeaHelixClojure.releaseEditor(project, editor)
             }
         }, project)
     }

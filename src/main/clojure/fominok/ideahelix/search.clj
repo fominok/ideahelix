@@ -1,4 +1,6 @@
 (ns fominok.ideahelix.search
+  (:require
+    [fominok.ideahelix.editor.jumplist :refer [capture-current-location! capture-current-location-later!]])
   (:import
     (com.intellij.openapi.application
       ModalityState
@@ -71,28 +73,33 @@
 
 (defn relativize-path
   [project path]
-  (let [base-path (.getPath (ProjectUtil/guessProjectDir project))]
-    (if (and (.startsWith path base-path) (not= path base-path))
+  (let [base-path (some-> (ProjectUtil/guessProjectDir project) .getPath)]
+    (if (and base-path (.startsWith path base-path) (not= path base-path))
       (.substring path (inc (count base-path)))
       path)))
 
 
 (defn get-filenames!
-  [project result]
+  [project result on-loaded]
   (.. (^[Callable] ReadAction/nonBlocking
        (fn []
-         (into {} (keep (fn [name]
-                          (when-let [file (first (FilenameIndex/getVirtualFilesByName name (GlobalSearchScope/projectScope project)))]
-                            [(relativize-path project (.getPath file)) file]))
-                        (FilenameIndex/getAllFilenames project)))))
+         (into {} (mapcat (fn [name]
+                            (keep (fn [file]
+                                    (when-let [file-path (some-> file .getPath)]
+                                      (let [path (relativize-path project file-path)]
+                                        [path file])))
+                                  (FilenameIndex/getVirtualFilesByName name (GlobalSearchScope/projectScope project))))
+                          (FilenameIndex/getAllFilenames project)))))
       (finishOnUiThread
         (ModalityState/any)
-        #(vreset! result %))
+        #(do
+           (vreset! result %)
+           (on-loaded)))
       (submit (AppExecutorUtil/getAppExecutorService))))
 
 
 (defn search-file-name
-  [project ^Editor parent]
+  [project state-atom ^Editor parent]
   (let [files (volatile! {})
         alarm (Alarm. Alarm$ThreadToUse/POOLED_THREAD project)
         model (DefaultListModel.)
@@ -112,7 +119,7 @@
                   (.setResizable true)
                   (.createPopup))]
 
-    (get-filenames! project files)
+    (get-filenames! project files #(filter-list alarm input list model @files))
 
     (doto (.getInputMap input)
       (.put (KeyStroke/getKeyStroke "control N") "selectNext")
@@ -138,9 +145,11 @@
                           (actionPerformed
                             [^ActionEvent _]
                             (let [selected (.getSelectedValue list)]
-                              (.cancel popup)
                               (when-let [file (get @files selected)]
-                                (.openFile (FileEditorManager/getInstance project) file true))))))
+                                (.cancel popup)
+                                (capture-current-location! state-atom project)
+                                (.openFile (FileEditorManager/getInstance project) file true)
+                                (capture-current-location-later! state-atom project))))))
 
     (.addDocumentListener (.getDocument input)
                           (proxy [DocumentListener] []

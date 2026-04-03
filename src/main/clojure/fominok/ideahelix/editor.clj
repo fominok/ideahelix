@@ -4,7 +4,7 @@
 
 (ns fominok.ideahelix.editor
   (:require
-    [fominok.ideahelix.editor.action :refer [actions]]
+    [fominok.ideahelix.editor.action :refer [actions redo-available? undo-available?]]
     [fominok.ideahelix.editor.jumplist :refer :all]
     [fominok.ideahelix.editor.modification :refer :all]
     [fominok.ideahelix.editor.registers :refer :all]
@@ -107,12 +107,14 @@
                     :previous-mode (:mode state)))
    (\u
      "Undo"
-     [editor] (actions editor IdeActions/ACTION_UNDO)
+     [editor] (when (undo-available? editor)
+                (actions editor IdeActions/ACTION_UNDO))
      [document caret] (-> (ihx-selection document caret)
                           (ihx-apply-selection! document)))
    ((:shift \U)
     "Redo"
-    [editor] (actions editor IdeActions/ACTION_REDO)
+    [editor] (when (redo-available? editor)
+               (actions editor IdeActions/ACTION_REDO))
     [document caret] (-> (ihx-selection document caret)
                          (ihx-apply-selection! document)))
    (\y
@@ -257,7 +259,7 @@
            (ihx-move-relative! :lines n-lines)
            (ihx-shrink-selection)
            (ihx-apply-selection! document))))
-    ((:or (:ctrl \d) (:ctrl \u0015))
+    ((:or (:ctrl \u) (:ctrl \u0015))
      "Move up half page extending" :scroll
      [editor document caret]
      (let [n-lines (quot (get-editor-height editor) 2)]
@@ -380,7 +382,7 @@
        (-> (ihx-selection document caret)
            (ihx-move-relative! :lines n-lines)
            (ihx-apply-selection! document))))
-    ((:or (:ctrl \d) (:ctrl \u0015))
+    ((:or (:ctrl \u) (:ctrl \u0015))
      "Move up half page extending" :scroll
      [editor document caret]
      (let [n-lines (quot (get-editor-height editor) 2)]
@@ -491,15 +493,15 @@
       (actions editor IdeActions/ACTION_GOTO_DECLARATION)
       [state] (assoc state :mode :normal))
     (\n
-      "Next tab"
+      "Next tab" :jumplist-add
       [editor]
-      (actions editor IdeActions/ACTION_NEXT_TAB)
+      (actions editor IdeActions/ACTION_PREVIOUS_TAB)
       [state]
       (assoc state :mode :normal))
     (\p
-      "Previous tab"
+      "Previous tab" :jumplist-add
       [editor]
-      (actions editor IdeActions/ACTION_PREVIOUS_TAB)
+      (actions editor IdeActions/ACTION_NEXT_TAB)
       [state]
       (assoc state :mode :normal))
     (\h
@@ -571,7 +573,7 @@
       "File finder"
       [state project editor]
       (do
-        (search-file-name project editor)
+        (search-file-name project state-atom editor)
         (assoc state :mode :normal)))
     (\r
       "Rename symbol"

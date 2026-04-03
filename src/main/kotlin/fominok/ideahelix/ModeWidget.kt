@@ -1,8 +1,10 @@
 package fominok.ideahelix
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidgetFactory
+import com.intellij.openapi.wm.WindowManager
 
 class ModeWidget : StatusBarWidgetFactory {
     override fun getId(): String {
@@ -18,7 +20,12 @@ class ModeWidget : StatusBarWidgetFactory {
     }
 
     override fun createWidget(project: Project): StatusBarWidget {
-        return ModePanel()
+        val panel = ModePanel()
+        ApplicationManager.getApplication().invokeLater {
+            panel.setText(IdeaHelixClojure.currentMode(project).uppercase())
+            WindowManager.getInstance().getStatusBar(project)?.updateWidget(ModePanel.ID)
+        }
+        return panel
     }
 
     override fun isEnabledByDefault(): Boolean {
@@ -27,7 +34,6 @@ class ModeWidget : StatusBarWidgetFactory {
 }
 
 class ModePanel : StatusBarWidget.TextPresentation, StatusBarWidget {
-
     private var text: String = "Loading..."
 
     fun setText(text: String) {

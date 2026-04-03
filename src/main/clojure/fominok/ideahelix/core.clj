@@ -70,6 +70,8 @@
   [project ^Editor editor]
   (let [project-state (or (get @state-atom project) {:mode :normal})
         document (.getDocument editor)]
+    (when-not (get @state-atom project)
+      (swap! state-atom assoc project project-state))
     (when-not (get-in project-state [:caret-listeners editor])
       (let [listener (caret-listener editor)
             _ (.. editor getCaretModel (addCaretListener listener))]
@@ -80,6 +82,15 @@
           (runForEachCaret (fn [caret]
                              (-> (ihx-selection document caret)
                                  (ihx-apply-selection! document))))))))
+
+
+(defn release-editor
+  [project ^Editor editor]
+  (when-let [listener (get-in @state-atom [project :caret-listeners editor])]
+    (.. editor getCaretModel (removeCaretListener listener))
+    (swap! state-atom update project #(some-> %
+                                              (update :caret-listeners dissoc editor)
+                                              (update :per-editor dissoc editor)))))
 
 
 (defonce -server
