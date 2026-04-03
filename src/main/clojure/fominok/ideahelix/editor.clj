@@ -9,7 +9,6 @@
     [fominok.ideahelix.editor.modification :refer :all]
     [fominok.ideahelix.editor.registers :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
-    [fominok.ideahelix.editor.ui :as ui]
     [fominok.ideahelix.editor.util :refer [get-editor-height]]
     [fominok.ideahelix.keymap :refer [defkeymap]]
     [fominok.ideahelix.search :refer :all])
@@ -58,7 +57,7 @@
    state
    editor
    & {:keys [dump-selections insertion-kind]
-      :or {dump-selections true insertion-kind :prepend}}]
+      :or   {dump-selections true insertion-kind :prepend}}]
   (let [pre-selections (when dump-selections (dump-drop-selections! editor (.getDocument editor)))]
     (-> state
         (assoc-in [:per-editor editor :mark-action] (start-undo project editor))
@@ -98,13 +97,13 @@
    (\t
      "Find till char"
      [state] (assoc state :mode :find-char
-                    :find-char-include false
-                    :previous-mode (:mode state)))
+                          :find-char-include false
+                          :previous-mode (:mode state)))
    (\f
      "Find including char"
      [state] (assoc state :mode :find-char
-                    :find-char-include true
-                    :previous-mode (:mode state)))
+                          :find-char-include true
+                          :previous-mode (:mode state)))
    (\u
      "Undo"
      [editor] (when (undo-available? editor)
@@ -495,13 +494,13 @@
     (\n
       "Next tab" :jumplist-add
       [editor]
-      (actions editor IdeActions/ACTION_PREVIOUS_TAB)
+      (actions editor IdeActions/ACTION_NEXT_TAB)
       [state]
       (assoc state :mode :normal))
     (\p
       "Previous tab" :jumplist-add
       [editor]
-      (actions editor IdeActions/ACTION_NEXT_TAB)
+      (actions editor IdeActions/ACTION_PREVIOUS_TAB)
       [state]
       (assoc state :mode :normal))
     (\h
@@ -768,8 +767,7 @@
       (map? result) (do
                       (.consume event)
                       (let [new-state (merge project-state result)]
-                        (swap! state-atom assoc project new-state)
-                        (ui/update-mode-panel! project new-state))
+                        (swap! state-atom assoc project new-state))
                       true)
       :default (do
                  (.consume event)

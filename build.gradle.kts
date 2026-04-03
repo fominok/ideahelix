@@ -4,6 +4,8 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.5.0"
 }
 
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 group = "fominok"
 version = "1.0-SNAPSHOT"
 
@@ -21,6 +23,36 @@ sourceSets {
             srcDirs("src/main/clojure")
         }
     }
+}
+
+val aotOutputDir = layout.buildDirectory.dir("generated/aot/main")
+
+val compileClojureBridgeAot by tasks.registering(JavaExec::class) {
+    val outputDir = aotOutputDir.get().asFile
+
+    inputs.files(fileTree("src/main/clojure"))
+    outputs.dir(outputDir)
+
+    classpath = sourceSets.main.get().compileClasspath + files("src/main/clojure")
+    mainClass.set("clojure.main")
+
+    doFirst {
+        outputDir.mkdirs()
+    }
+
+    args(
+        "-e",
+        """
+        (binding [*compile-path* "${outputDir.absolutePath.replace("\\", "\\\\")}"]
+          (compile 'fominok.ideahelix.bridge))
+        """.trimIndent(),
+    )
+}
+
+sourceSets.main {
+    output.dir(mapOf("builtBy" to compileClojureBridgeAot), aotOutputDir)
+    compileClasspath += files(aotOutputDir)
+    runtimeClasspath += files(aotOutputDir)
 }
 
 // Configure Gradle IntelliJ Plugin
@@ -63,7 +95,8 @@ tasks {
         sourceCompatibility = "21"
         targetCompatibility = "21"
     }
-    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    withType<KotlinCompile> {
+        dependsOn(compileClojureBridgeAot)
         kotlinOptions.jvmTarget = "21"
     }
 }

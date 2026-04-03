@@ -22,7 +22,7 @@ class ModeWidget : StatusBarWidgetFactory {
     override fun createWidget(project: Project): StatusBarWidget {
         val panel = ModePanel()
         ApplicationManager.getApplication().invokeLater {
-            panel.setText(IdeaHelixClojure.currentMode(project).uppercase())
+            panel.setText(IdeaHelixClojure.currentModeDisplay(project))
             WindowManager.getInstance().getStatusBar(project)?.updateWidget(ModePanel.ID)
         }
         return panel
@@ -30,6 +30,15 @@ class ModeWidget : StatusBarWidgetFactory {
 
     override fun isEnabledByDefault(): Boolean {
         return true
+    }
+
+    companion object {
+        fun update(project: Project, text: String) {
+            val statusBar = WindowManager.getInstance().getStatusBar(project) ?: return
+            val widget = statusBar.getWidget(ModePanel.ID) as? ModePanel ?: return
+            widget.setText(text)
+            statusBar.updateWidget(ModePanel.ID)
+        }
     }
 }
 
