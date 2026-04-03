@@ -15,15 +15,14 @@
     (com.intellij.openapi.editor
       Editor)
     (com.intellij.openapi.editor.event
-      CaretListener)
-    (com.intellij.openapi.editor.impl
-      EditorComponentImpl)))
+      CaretListener)))
 
 
 (set! *warn-on-reflection* true)
 
 
 (defn- config-file
+  ^java.io.File
   []
   (let [home (System/getProperty "user.home")
         os-name (System/getProperty "os.name" "")]
@@ -35,9 +34,10 @@
 
 (defn- read-config
   []
-  (let [config-file (config-file)]
-    (with-open [reader (io/reader config-file)]
-      (toml/read reader))))
+  (let [^java.io.File config-file (config-file)]
+    (when (.exists config-file)
+      (with-open [reader (io/reader config-file)]
+        (toml/read reader)))))
 
 
 (defn- configured-nrepl-port
@@ -46,13 +46,16 @@
           (get-in ["development" "nrepl_port"])))
 
 
-(defn push-event
-  [project focus-owner event]
+(defn push-editor-event
+  [project ^Editor editor event]
   (boolean
-    (when (instance? EditorComponentImpl focus-owner)
-      (let [editor (.getEditor ^EditorComponentImpl focus-owner)]
-        (when-not (.isOneLineMode editor)
-          (handle-editor-event project editor event))))))
+    (when-not (.isOneLineMode editor)
+      (handle-editor-event project editor event))))
+
+
+(defn current-mode
+  [project]
+  (:mode (or (get @state-atom project) {:mode :normal})))
 
 
 (defn- caret-listener

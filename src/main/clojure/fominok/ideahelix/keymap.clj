@@ -130,6 +130,67 @@
       [modifier matcher-type evaluated-matcher])))
 
 
+(defn- keycode->printable-char
+  [^KeyEvent event]
+  (let [shift? (.isShiftDown event)
+        code (.getKeyCode event)]
+    (case code
+      KeyEvent/VK_A (if shift? \A \a)
+      KeyEvent/VK_B (if shift? \B \b)
+      KeyEvent/VK_C (if shift? \C \c)
+      KeyEvent/VK_D (if shift? \D \d)
+      KeyEvent/VK_E (if shift? \E \e)
+      KeyEvent/VK_F (if shift? \F \f)
+      KeyEvent/VK_G (if shift? \G \g)
+      KeyEvent/VK_H (if shift? \H \h)
+      KeyEvent/VK_I (if shift? \I \i)
+      KeyEvent/VK_J (if shift? \J \j)
+      KeyEvent/VK_K (if shift? \K \k)
+      KeyEvent/VK_L (if shift? \L \l)
+      KeyEvent/VK_M (if shift? \M \m)
+      KeyEvent/VK_N (if shift? \N \n)
+      KeyEvent/VK_O (if shift? \O \o)
+      KeyEvent/VK_P (if shift? \P \p)
+      KeyEvent/VK_Q (if shift? \Q \q)
+      KeyEvent/VK_R (if shift? \R \r)
+      KeyEvent/VK_S (if shift? \S \s)
+      KeyEvent/VK_T (if shift? \T \t)
+      KeyEvent/VK_U (if shift? \U \u)
+      KeyEvent/VK_V (if shift? \V \v)
+      KeyEvent/VK_W (if shift? \W \w)
+      KeyEvent/VK_X (if shift? \X \x)
+      KeyEvent/VK_Y (if shift? \Y \y)
+      KeyEvent/VK_Z (if shift? \Z \z)
+      KeyEvent/VK_SEMICOLON (if shift? \: \;)
+      KeyEvent/VK_COMMA (if shift? \< \,)
+      KeyEvent/VK_PERIOD (if shift? \> \.)
+      KeyEvent/VK_SLASH (if shift? \? \/)
+      KeyEvent/VK_SPACE \space
+      nil)))
+
+
+(defn- ctrl-keycode->char
+  [^KeyEvent event]
+  (when-let [base-char (keycode->printable-char event)]
+    (let [lower (.toLowerCase (str base-char))]
+      (when (re-matches #"[a-z]" lower)
+        (char (bit-and 0x1f (int (first lower))))))))
+
+
+(defn normalized-key-char
+  [^KeyEvent event]
+  (let [char (.getKeyChar event)]
+    (cond
+      (not= char KeyEvent/CHAR_UNDEFINED) char
+      (not= (.getID event) KeyEvent/KEY_PRESSED) char
+      (and (.isControlDown event)
+           (not (.isAltDown event))
+           (not (.isMetaDown event)))
+      (or (ctrl-keycode->char event) char)
+      :else
+      (or (keycode->printable-char event) char))))
+
+
 (defn- process-matcher
   "process-single-matcher has the core logic, but first we handle (:or ...) construct"
   [matcher]
@@ -153,7 +214,7 @@
                             :state project-state
                             :project project
                             :document `(.getDocument ~editor)
-                            :char `(.getKeyChar ~event)
+                            :char `(normalized-key-char ~event)
                             :editor editor)])
                    (get deps-bindings-split nil)))
         caret-sym (get-in deps-bindings-split [:caret 0 1])
@@ -253,12 +314,13 @@
              mode# (:mode project-state#)
              any-mode-matchers# (get-in ~rules [:any modifier#])
              cur-mode-matchers# (get-in ~rules [mode# modifier#])
+             normalized-char# (normalized-key-char event#)
              find-matcher#
              (fn [in-mode#]
                (or (get-in in-mode# [:int (.getKeyCode event#)])
-                   (get-in in-mode# [:char (.getKeyChar event#)])
+                   (get-in in-mode# [:char normalized-char#])
                    (some
-                     (fn [[pred# f#]] (when (pred# (.getKeyChar event#)) f#))
+                     (fn [[pred# f#]] (when (pred# normalized-char#) f#))
                      (get in-mode# :fn))))
              handler-opt#
              (or (find-matcher# any-mode-matchers#)

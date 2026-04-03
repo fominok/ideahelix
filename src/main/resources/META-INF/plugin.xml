@@ -26,7 +26,11 @@
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="fominok.ideahelix.Init"/>
         <statusBarWidgetFactory id="IdeahelixModeWidget" implementation="fominok.ideahelix.ModeWidget"/>
+        <actionPromoter implementation="fominok.ideahelix.IdeaHelixActionPromoter" order="last"/>
     </extensions>
 
+    <actions>
+        <action id="IdeaHelixShortcutAction" class="fominok.ideahelix.IdeaHelixShortcutAction"/>
+    </actions>
 
 </idea-plugin>
